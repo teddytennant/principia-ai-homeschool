@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { Textarea } from "@/components/ui/textarea";
 import { ChatLayout } from "@/components/chat/chat-layout";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // Define message type
 interface Message {
@@ -173,15 +175,37 @@ export default function ChatPage() {
                             {/* Message Bubble - Refined colors and padding */}
                             <div
                                 className={cn(
-                                    "px-3.5 py-2 rounded-lg text-sm shadow-sm", // Less vertical padding
+                                    "prose prose-sm dark:prose-invert prose-neutral",
+                                    "max-w-none",
+                                    "px-3.5 py-2 rounded-lg shadow-sm",
                                     "leading-relaxed break-words",
                                     message.role === "user"
-                                        ? "bg-indigo-500 dark:bg-indigo-600 text-white"
-                                        : "bg-white dark:bg-neutral-800 text-gray-900 dark:text-neutral-100"
+                                        ? "bg-indigo-500 dark:bg-indigo-600 text-white prose-strong:text-white prose-code:text-indigo-100"
+                                        : "bg-white dark:bg-neutral-800 text-gray-900 dark:text-neutral-100 prose-code:text-neutral-800 dark:prose-code:text-neutral-300 prose-strong:text-gray-800 dark:prose-strong:text-neutral-100"
                                 )}
                             >
-                                {/* Consider using a markdown renderer here for richer text */}
-                                <p className="whitespace-pre-wrap">{message.content}</p>
+                                <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                        code({ node, inline, className, children, ...props }) {
+                                            const match = /language-(\w+)/.exec(className || '')
+                                            return !inline && match ? (
+                                            <div className="bg-gray-100 dark:bg-neutral-900/80 p-3 rounded my-2 overflow-x-auto">
+                                                <code className={cn("text-xs", className)} {...props}>
+                                                {String(children).replace(/\n$/, '')}
+                                                </code>
+                                             </div>
+                                            ) : (
+                                            <code className={cn("text-xs before:content-none after:content-none font-mono px-1 py-0.5 rounded bg-gray-200/50 dark:bg-neutral-700/50", className)} {...props}>
+                                                {children}
+                                            </code>
+                                            )
+                                        },
+                                        a: ({ node, ...props }) => <a target="_blank" rel="noopener noreferrer" {...props} />,
+                                    }}
+                                >
+                                    {message.content}
+                                </ReactMarkdown>
                             </div>
                         </div>
                     </motion.div>

@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     if (subject && subject !== 'general') {
         systemPrompt += ` Focus the discussion on the subject of ${subject}.`;
     }
-    systemPrompt += " Avoid giving the final answer directly. Instead, ask leading questions to help the student arrive at the answer themselves.";
+    systemPrompt += " Avoid giving the final answer directly. Instead, ask leading questions to help the student arrive at the answer themself.";
     console.log("Using System Prompt:", systemPrompt); // Log the system prompt
 
     // Call OpenRouter API with Llama 4 Maverick

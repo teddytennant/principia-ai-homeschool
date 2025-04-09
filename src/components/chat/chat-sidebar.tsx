@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link'; // Import Next Link
+import { usePathname, useRouter } from 'next/navigation'; // Import usePathname and useRouter
 import { cn } from "@/lib/utils";
 import { MessageSquarePlus, ChevronDown, Settings, Activity, HelpCircle } from 'lucide-react'; // Add more icons
 
@@ -34,9 +36,9 @@ const SidebarItem: React.FC<{ children: React.ReactNode, onClick?: () => void, h
 
     if (href) {
         return (
-            <a href={href} className={cn(commonClasses, hoverClasses, isActive && activeClasses)}>
+            <Link href={href} className={cn(commonClasses, hoverClasses, isActive && activeClasses)}>
                 {content}
-            </a>
+            </Link>
         );
     }
     return (
@@ -55,6 +57,16 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 }) => {
     const SelectedIcon = subjects.find(s => s.value === selectedSubject)?.icon || MessageSquarePlus;
     const iconSize = 16; // Consistent icon size
+    const pathname = usePathname(); // Get current path
+    const router = useRouter(); // Get router instance
+
+    // Handle New Chat: clear state and navigate to /chat if not already there
+    const handleNewChatClick = () => {
+        onNewChat(); // Clear state via prop from ChatPage
+        if (pathname !== '/chat') {
+            router.push('/chat'); // Navigate to chat page
+        }
+    };
 
     return (
         <aside className={cn(
@@ -66,8 +78,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 {/* Top Section: New Chat button simplified */}
                 <div className="mb-4">
                     <button 
-                        onClick={onNewChat} 
-                        className="flex w-full items-center justify-between gap-2 rounded-lg border border-gray-300 dark:border-neutral-700/60 px-3 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-neutral-800/50 transition-colors focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500 dark:focus:ring-offset-black"
+                        onClick={handleNewChatClick}
+                        disabled={isLoading} // Disable button if chat is loading
+                        className="flex w-full items-center justify-between gap-2 rounded-lg border border-gray-300 dark:border-neutral-700/60 px-3 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-neutral-800/50 transition-colors focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500 dark:focus:ring-offset-black disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         <span className="dark:text-neutral-100">New Chat</span>
                         <MessageSquarePlus size={iconSize} className="dark:text-neutral-400" />
@@ -119,13 +132,14 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
                 {/* Bottom Section: Links/Settings - Using SidebarItem */}
                 <div className="mt-auto border-t border-gray-200 dark:border-neutral-800 pt-3 space-y-1">
-                    <SidebarItem href="#">
+                    {/* Mark links as active based on current path */}
+                    <SidebarItem href="/help" isActive={pathname === '/help'}> 
                         <HelpCircle size={iconSize} /> Help
                     </SidebarItem>
-                    <SidebarItem href="#">
+                    <SidebarItem href="/activity" isActive={pathname === '/activity'}>
                          <Activity size={iconSize} /> Activity
                      </SidebarItem>
-                    <SidebarItem href="#">
+                    <SidebarItem href="/settings" isActive={pathname === '/settings'}>
                          <Settings size={iconSize} /> Settings
                      </SidebarItem>
                 </div>

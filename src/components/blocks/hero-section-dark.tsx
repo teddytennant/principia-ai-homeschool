@@ -1,8 +1,11 @@
+"use client";
+
 import * as React from "react"
 import Link from 'next/link'
 import { cn } from "@/lib/utils"
 import { ChevronRight } from "lucide-react"
 import { motion } from 'framer-motion'
+import { ButtonColorful } from "@/components/ui/button-colorful"
 
 interface HeroSectionProps extends React.HTMLAttributes<HTMLDivElement> {
   title?: string
@@ -63,49 +66,67 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
       className,
       title = "Principia AI",
       subtitle = {
-        regular: "AI-Powered Learning for ",
-        gradient: "Schools",
+        regular: "Socratic Learning, ",
+        gradient: "AI-Powered",
       },
-      description = "An AI-powered Socratic educational chatbot guiding students with questions, encouraging critical thinking responsibly.",
-      ctaText = "Start Chatting",
-      ctaHref = "/chat",
+      description = "Guide students toward deeper understanding with our AI-powered Socratic tutor. Designed for responsible classroom use.",
+      ctaText = "Get Started Free",
+      ctaHref = "/signin",
       bottomImage,
       gridOptions = {},
       ...props
     },
     ref,
   ) => {
+    const containerVariants = {
+      hidden: { opacity: 0 },
+      visible: {
+        opacity: 1,
+        transition: { staggerChildren: 0.15, delayChildren: 0.2 }
+      }
+    };
+
+    const itemVariants = {
+      hidden: { opacity: 0, y: 20 },
+      visible: {
+        opacity: 1,
+        y: 0,
+        transition: { duration: 0.5, ease: "easeOut" }
+      }
+    };
+
     return (
-      <div className={cn("relative overflow-hidden", className)} ref={ref} {...props}>
-        <div className="absolute top-0 z-[-1] h-screen w-screen bg-white dark:bg-black" />
+      <div className={cn("relative overflow-hidden bg-black", className)} ref={ref} {...props}>
         <section className="relative max-w-full mx-auto z-1">
-          <RetroGrid {...gridOptions} />
-          <div className="max-w-screen-xl z-10 mx-auto px-4 py-28 md:py-36 gap-12 md:px-8">
-            <div className="space-y-6 max-w-3xl mx-auto text-center">
-              <h1 className="text-sm text-gray-700 dark:text-gray-300 group font-geist mx-auto px-4 py-1.5 bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-full w-fit shadow-sm">
+          <RetroGrid {...gridOptions} darkLineColor="rgba(255, 255, 255, 0.06)" />
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+            className="max-w-screen-xl z-10 mx-auto px-4 py-32 md:py-40 gap-12 md:px-8"
+          >
+            <div className="space-y-8 max-w-3xl mx-auto text-center">
+              <motion.h1 variants={itemVariants} className="text-sm text-gray-300 group font-geist mx-auto px-4 py-1.5 bg-gray-800/50 border border-gray-700/50 rounded-full w-fit shadow-sm">
                 {title}
-                <ChevronRight className="inline w-4 h-4 ml-1 text-gray-500 dark:text-gray-400 group-hover:translate-x-1 duration-300" />
-              </h1>
-              <h2 className="text-4xl tracking-tighter font-bold font-geist text-gray-900 dark:text-gray-50 mx-auto md:text-6xl">
+                <ChevronRight className="inline w-4 h-4 ml-1 text-gray-400 group-hover:translate-x-1 duration-300" />
+              </motion.h1>
+              <motion.h2 variants={itemVariants} className="text-4xl tracking-tighter font-bold font-geist text-gray-50 mx-auto md:text-6xl">
                 {subtitle.regular}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-indigo-500">
                   {subtitle.gradient}
                 </span>
-              </h2>
-              <p className="max-w-2xl mx-auto text-gray-600 dark:text-gray-400 text-lg">
+              </motion.h2>
+              <motion.p variants={itemVariants} className="max-w-xl mx-auto text-gray-400 text-lg md:text-xl">
                 {description}
-              </p>
-              <div className="items-center justify-center pt-4">
-                <Link
-                  href={ctaHref}
-                  className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 h-11 px-8 shadow-sm"
-                >
-                  {ctaText}
+              </motion.p>
+              <motion.div variants={itemVariants} className="items-center justify-center pt-6">
+                <Link href={ctaHref}>
+                  <ButtonColorful label={ctaText} />
                 </Link>
-              </div>
+              </motion.div>
             </div>
             {bottomImage && (
-              <div className="mt-24 md:mt-32 mx-auto max-w-4xl relative z-10">
+              <motion.div variants={itemVariants} className="mt-24 md:mt-32 mx-auto max-w-4xl relative z-10">
                 <img
                   src={bottomImage.light}
                   className="w-full rounded-lg border border-gray-200 shadow-xl dark:hidden"
@@ -113,12 +134,12 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
                 />
                 <img
                   src={bottomImage.dark}
-                  className="hidden w-full rounded-lg border border-gray-800 shadow-xl dark:block"
+                  className="w-full rounded-lg border border-gray-800 shadow-xl dark:block"
                   alt="Product preview dark mode"
                 />
-              </div>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
         </section>
       </div>
     )
