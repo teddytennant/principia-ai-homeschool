@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from 'next-themes';
+import { TeacherSettingsProvider } from "@/lib/teacher-settings-context";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -25,11 +26,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white dark:bg-black transition-colors duration-300`}
       >
-        <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark">
-          {children}
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <TeacherSettingsProvider>
+            {children}
+          </TeacherSettingsProvider>
         </ThemeProvider>
       </body>
     </html>

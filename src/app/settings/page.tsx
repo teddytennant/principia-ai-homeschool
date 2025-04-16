@@ -1,12 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChatLayout } from "@/components/chat/chat-layout";
+import { AppLayout } from "@/components/layout/AppLayout"; // Import AppLayout
 import { BrainCircuit, FlaskConical, History, Sigma, BookOpen, Sun, Moon, Laptop } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from "@/lib/utils";
 
-// Define subjects locally or import from a shared location
+// Define Chat History Item type (can be shared or imported)
+interface ChatHistoryItem {
+  id: string;
+  title: string;
+}
+
+// Define subjects locally or import from a shared location (needed for AppLayout -> ChatSidebar)
 const subjects = [
   { value: "general", label: "General", icon: BrainCircuit },
   { value: "math", label: "Math", icon: Sigma },
@@ -16,12 +22,35 @@ const subjects = [
 ];
 
 export default function SettingsPage() {
-  // Dummy state/handlers needed for ChatLayout compatibility
-  const [dummySubject, setDummySubject] = useState(subjects[0].value);
-  const handleDummyNewChat = () => console.log("New Chat clicked from Settings");
+  // State needed for AppLayout props (passed down to ChatSidebar)
+  // Use dummy/mock data and handlers for now
+  const [chatHistory, ] = useState<ChatHistoryItem[]>([
+    // Provide some mock history for the sidebar to display
+   
+  ]);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<string>(subjects[0].value); // Default subject
+  const [isLoading, ] = useState(false); // Example loading state
+
+  const handleSelectChat = (id: string) => {
+    console.log(`Settings Page: Chat selected ${id}`);
+    setCurrentChatId(id);
+    // Might navigate to the chat page
+  };
+
+  const handleNewChat = () => {
+    console.log("Settings Page: New Chat clicked");
+    // Might navigate to /chat
+    setCurrentChatId(null);
+  };
+
+  const handleSubjectChange = (value: string) => {
+    console.log(`Settings Page: Subject changed to ${value}`);
+    setSelectedSubject(value);
+  };
 
   // Theme state from next-themes
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme(); // removed resolvedTheme as it wasn't used
   // Need to wait for mount to access theme reliably
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -33,12 +62,15 @@ export default function SettingsPage() {
   ];
 
   return (
-    <ChatLayout
-      subjects={subjects}
-      selectedSubject={dummySubject}
-      onSubjectChange={setDummySubject}
-      isLoading={false}
-      onNewChat={handleDummyNewChat}
+    <AppLayout // Use AppLayout
+      // Pass the necessary props for the sidebar
+      chatHistory={chatHistory}
+      onSelectChat={handleSelectChat}
+      currentChatId={currentChatId}
+      onNewChat={handleNewChat}
+      selectedSubject={selectedSubject}
+      onSubjectChange={handleSubjectChange}
+      isLoading={isLoading}
     >
       {/* Main Content for Settings Page */}
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
@@ -86,6 +118,6 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-    </ChatLayout>
+    </AppLayout> // Close AppLayout
   );
-} 
+}

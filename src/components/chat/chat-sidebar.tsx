@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link'; // Import Next Link
 import { usePathname, useRouter } from 'next/navigation'; // Import usePathname and useRouter
 import { cn } from "@/lib/utils";
-import { MessageSquarePlus, ChevronDown, Settings, Activity, HelpCircle } from 'lucide-react'; // Add more icons
+import { MessageSquarePlus, ChevronDown, Settings, HelpCircle } from 'lucide-react'; // Add more icons
 
 // Define subject type (can be shared or redefined)
 interface Subject {
@@ -19,10 +19,10 @@ interface ChatSidebarProps {
     onSubjectChange: (value: string) => void;
     isLoading: boolean;
     onNewChat: () => void; // Add prop for new chat handler
-    // Add props for chat history later
-    // chatHistory: { id: string; title: string }[];
-    // onSelectChat: (id: string) => void;
-    // currentChatId: string | null;
+    // Props for chat history
+    chatHistory: { id: string; title: string }[];
+    onSelectChat: (id: string) => void;
+    currentChatId: string | null;
 }
 
 // Refined SidebarItem for cleaner hover/active states
@@ -54,6 +54,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     onSubjectChange,
     isLoading,
     onNewChat, // Receive handler
+    // Receive chat history props
+    chatHistory,
+    onSelectChat,
+    currentChatId,
 }) => {
     const SelectedIcon = subjects.find(s => s.value === selectedSubject)?.icon || MessageSquarePlus;
     const iconSize = 16; // Consistent icon size
@@ -120,14 +124,23 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     <h3 className="text-xs font-medium text-gray-500 dark:text-neutral-500 mb-2 px-1 uppercase tracking-wider">
                         History
                     </h3>
-                    {/* Placeholder */}
-                    <div className="text-center text-xs text-gray-400 dark:text-neutral-500 py-8 px-2">
-                        Your chat history is coming soon.
-                    </div>
-                    {/* Example Items using SidebarItem:
-                    <SidebarItem isActive={true}><MessageSquare size={iconSize}/> Chat about Photosynthesis</SidebarItem>
-                    <SidebarItem><MessageSquare size={iconSize}/> Math Problem Solving</SidebarItem>
-                     */} 
+                    {chatHistory && chatHistory.length > 0 ? (
+                        chatHistory.map((chat) => (
+                            <SidebarItem
+                                key={chat.id}
+                                onClick={() => onSelectChat(chat.id)}
+                                isActive={chat.id === currentChatId}
+                            >
+                                {/* Using a generic icon for now, could be dynamic later */}
+                                <MessageSquarePlus size={iconSize} /> 
+                                <span className="truncate flex-1">{chat.title || `Chat ${chat.id.substring(0, 6)}`}</span> 
+                            </SidebarItem>
+                        ))
+                    ) : (
+                        <div className="text-center text-xs text-gray-400 dark:text-neutral-500 py-8 px-2">
+                            No chat history yet. Start a new chat!
+                        </div>
+                    )}
                 </div>
 
                 {/* Bottom Section: Links/Settings - Using SidebarItem */}
@@ -136,9 +149,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     <SidebarItem href="/help" isActive={pathname === '/help'}> 
                         <HelpCircle size={iconSize} /> Help
                     </SidebarItem>
-                    <SidebarItem href="/activity" isActive={pathname === '/activity'}>
-                         <Activity size={iconSize} /> Activity
-                     </SidebarItem>
+                    {/* Removed Activity Link */}
                     <SidebarItem href="/settings" isActive={pathname === '/settings'}>
                          <Settings size={iconSize} /> Settings
                      </SidebarItem>
@@ -146,4 +157,4 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             </div>
         </aside>
     );
-}; 
+};

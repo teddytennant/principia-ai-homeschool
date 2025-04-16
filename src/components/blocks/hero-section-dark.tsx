@@ -60,6 +60,58 @@ const RetroGrid = ({
   )
 }
 
+// --- Animated Particle Background for Hero Section ---
+import { useEffect, useRef } from "react";
+
+function AnimatedParticles() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let animationFrameId: number;
+    const particles: { x: number; y: number; r: number; dx: number; dy: number; o: number }[] = [];
+    const w = window.innerWidth;
+    const h = 480;
+    canvas.width = w;
+    canvas.height = h;
+    for (let i = 0; i < 48; i++) {
+      particles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: 1.5 + Math.random() * 2.5,
+        dx: -0.4 + Math.random() * 0.8,
+        dy: -0.4 + Math.random() * 0.8,
+        o: 0.2 + Math.random() * 0.3,
+      });
+    }
+    function draw() {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, w, h);
+      for (const p of particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI);
+        ctx.fillStyle = `rgba(99,102,241,${p.o})`;
+        ctx.shadowColor = '#6366f1';
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        p.x += p.dx;
+        p.y += p.dy;
+        if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
+        if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
+      }
+      animationFrameId = requestAnimationFrame(draw);
+    }
+    draw();
+    return () => cancelAnimationFrame(animationFrameId);
+  }, []);
+  return (
+    <canvas ref={canvasRef} className="absolute inset-0 w-full h-[480px] pointer-events-none z-0" style={{ top: 0, left: 0 }} />
+  );
+}
+
 const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
   (
     {
@@ -69,7 +121,7 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
         regular: "Socratic Learning, ",
         gradient: "AI-Powered",
       },
-      description = "Guide students toward deeper understanding with our AI-powered Socratic tutor. Designed for responsible classroom use.",
+      description = "Guide students toward deeper understanding with our AI-powered Socratic tutor. Designed for responsible classroom use, we focus on teaching students how to think, not what to think.",
       ctaText = "Get Started Free",
       ctaHref = "/signin",
       bottomImage,
@@ -78,6 +130,32 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
     },
     ref,
   ) => {
+    const line1 = subtitle.regular;
+    const line2 = subtitle.gradient;
+
+    // Container variant for staggering children
+    const sentence = {
+      hidden: { opacity: 1 }, // Container itself is visible
+      visible: {
+        opacity: 1,
+        transition: {
+          delayChildren: 0.4, // Start after title/description fade in
+          staggerChildren: 0.06, // Stagger speed for letters
+        },
+      },
+    };
+
+    // Letter variant for individual animation
+    const letter = {
+      hidden: { opacity: 0, y: 20 },
+      visible: {
+        opacity: 1,
+        y: 0,
+        transition: { duration: 0.4, ease: "easeOut" },
+      },
+    };
+
+    // Existing container for general section elements
     const containerVariants = {
       hidden: { opacity: 0 },
       visible: {
@@ -96,45 +174,66 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
     };
 
     return (
-      <div className={cn("relative overflow-hidden bg-black", className)} ref={ref} {...props}>
+      <div className={cn("relative overflow-hidden bg-gradient-to-br from-indigo-900 via-gray-900 to-black", className)} ref={ref} {...props}>
         <section className="relative max-w-full mx-auto z-1">
-          <RetroGrid {...gridOptions} darkLineColor="rgba(255, 255, 255, 0.06)" />
+          {/* Animated Particle Background */}
+          <AnimatedParticles />
+          <RetroGrid {...gridOptions} darkLineColor="rgba(79, 70, 229, 0.1)" lightLineColor="rgba(79, 70, 229, 0.2)" opacity={0.5} />
           <motion.div
             initial="hidden"
             animate="visible"
             variants={containerVariants}
-            className="max-w-screen-xl z-10 mx-auto px-4 py-32 md:py-40 gap-12 md:px-8"
+            className="max-w-screen-xl z-10 mx-auto px-4 py-24 md:py-32 gap-8 md:px-8"
           >
-            <div className="space-y-8 max-w-3xl mx-auto text-center">
-              <motion.h1 variants={itemVariants} className="text-sm text-gray-300 group font-geist mx-auto px-4 py-1.5 bg-gray-800/50 border border-gray-700/50 rounded-full w-fit shadow-sm">
+            <div className="space-y-6 max-w-4xl mx-auto text-center">
+              <motion.h1 variants={itemVariants} className="text-sm text-indigo-300 group font-geist mx-auto px-4 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full w-fit shadow-sm shadow-indigo-500/20">
                 {title}
-                <ChevronRight className="inline w-4 h-4 ml-1 text-gray-400 group-hover:translate-x-1 duration-300" />
+                <ChevronRight className="inline w-4 h-4 ml-1 text-indigo-400 group-hover:translate-x-1 duration-300" />
               </motion.h1>
-              <motion.h2 variants={itemVariants} className="text-4xl tracking-tighter font-bold font-geist text-gray-50 mx-auto md:text-6xl">
-                {subtitle.regular}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-indigo-500">
-                  {subtitle.gradient}
+
+              {/* Animated Subtitle */}
+              <motion.h2
+                className="text-5xl tracking-tighter font-bold font-geist text-white mx-auto md:text-7xl"
+                variants={sentence}
+                initial="hidden"
+                animate="visible"
+              >
+                {line1.split("").map((char, index) => (
+                  <motion.span key={char + "-" + index} variants={letter}>
+                    {char}
+                  </motion.span>
+                ))}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-blue-400">
+                  {line2.split("").map((char, index) => (
+                    <motion.span key={char + "-" + index} variants={letter}>
+                      {char}
+                    </motion.span>
+                  ))}
                 </span>
               </motion.h2>
-              <motion.p variants={itemVariants} className="max-w-xl mx-auto text-gray-400 text-lg md:text-xl">
+
+              <motion.p variants={itemVariants} className="max-w-3xl mx-auto text-gray-300 text-lg md:text-xl">
                 {description}
               </motion.p>
-              <motion.div variants={itemVariants} className="items-center justify-center pt-6">
+              <motion.p variants={itemVariants} className="max-w-3xl mx-auto text-indigo-300 text-xl font-semibold italic mt-4">
+                "Teaching students how to think, not what to think."
+              </motion.p>
+              <motion.div variants={itemVariants} className="items-center justify-center pt-8">
                 <Link href={ctaHref}>
-                  <ButtonColorful label={ctaText} />
+                  <ButtonColorful label={ctaText} className="px-8 py-6 text-lg rounded-full shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all duration-300" />
                 </Link>
               </motion.div>
             </div>
             {bottomImage && (
-              <motion.div variants={itemVariants} className="mt-24 md:mt-32 mx-auto max-w-4xl relative z-10">
+              <motion.div variants={itemVariants} className="mt-16 md:mt-24 mx-auto max-w-5xl relative z-10">
                 <img
                   src={bottomImage.light}
-                  className="w-full rounded-lg border border-gray-200 shadow-xl dark:hidden"
+                  className="w-full rounded-xl border border-gray-200 shadow-2xl dark:hidden"
                   alt="Product preview light mode"
                 />
                 <img
                   src={bottomImage.dark}
-                  className="w-full rounded-lg border border-gray-800 shadow-xl dark:block"
+                  className="w-full rounded-xl border border-indigo-500/30 shadow-xl shadow-indigo-500/20 dark:block"
                   alt="Product preview dark mode"
                 />
               </motion.div>

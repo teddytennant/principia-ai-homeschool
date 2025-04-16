@@ -4,6 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { LogIn, MessageCircle, ClipboardList } from 'lucide-react'; // Example icons
 import { cn } from "@/lib/utils";
+import { GlowingEffect } from "@/components/ui/glowing-effect"; // Import CORRECT component
 
 interface StepCardProps {
   step: number;
@@ -13,7 +14,7 @@ interface StepCardProps {
   index: number; // For staggering animation
 }
 
-// Enhanced StepCard with icon and animation
+// Apply correct GlowingEffect
 const StepCard: React.FC<StepCardProps> = ({ step, title, description, icon: Icon, index }) => {
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -31,19 +32,28 @@ const StepCard: React.FC<StepCardProps> = ({ step, title, description, icon: Ico
   return (
     <motion.div
       variants={cardVariants}
+      // Add relative positioning for the absolute effect
       className={cn(
-        "bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700/40 p-6 rounded-xl shadow-md dark:shadow-lg flex flex-col items-center text-center",
+        "relative bg-gray-800/60 border border-gray-700/40 p-6 rounded-xl shadow-md dark:shadow-lg flex flex-col items-center text-center h-full",
         "hover:shadow-lg dark:hover:shadow-xl hover:scale-[1.02] dark:hover:bg-gray-800/80 transition-all duration-300 ease-in-out"
       )}
     >
-      <div className="mb-4">
-        <div className="bg-indigo-500 dark:bg-indigo-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mb-2 absolute -mt-2 -ml-2 ring-4 ring-white dark:ring-gray-900">{step}</div>
-        <div className="flex items-center justify-center h-16 w-16 rounded-full bg-indigo-100 dark:bg-indigo-900/50">
-            <Icon className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+      {/* Add the GlowingEffect component inside */}
+      <GlowingEffect 
+        className="rounded-xl" // Match border radius
+        disabled={false} // Enable the effect
+        glow={true} // Show the glow on hover
+      />
+      
+      {/* Original Card Content - Ensure it's above the effect with z-index */}
+      <div className="relative z-10 mb-4">
+        <div className="bg-indigo-500 dark:bg-indigo-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mb-2 absolute -mt-10 -ml-10 ring-4 ring-gray-900">{step}</div>
+        <div className="flex items-center justify-center h-16 w-16 rounded-full bg-indigo-900/50 border border-indigo-500/20">
+            <Icon className="h-8 w-8 text-indigo-400" />
         </div>
       </div>
-      <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">{title}</h3>
-      <p className="text-gray-600 dark:text-gray-400 text-sm">{description}</p>
+      <h3 className="relative z-10 text-lg font-semibold mb-2 text-gray-100">{title}</h3>
+      <p className="relative z-10 text-gray-400 text-sm flex-grow">{description}</p>
     </motion.div>
   );
 };
@@ -106,4 +116,4 @@ export const HowItWorksSection = () => {
       </div>
     </motion.section>
   );
-}; 
+};

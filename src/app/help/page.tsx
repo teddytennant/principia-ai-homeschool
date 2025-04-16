@@ -1,8 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChatLayout } from "@/components/chat/chat-layout";
+import { AppLayout } from "@/components/layout/AppLayout"; // Import AppLayout
 import { BrainCircuit, FlaskConical, History, Sigma, BookOpen } from 'lucide-react'; // Import icons for subjects
+
+// Define Chat History Item type (can be shared or imported)
+interface ChatHistoryItem {
+  id: string;
+  title: string;
+}
 
 // Define subjects locally or import from a shared location
 const subjects = [
@@ -14,18 +20,41 @@ const subjects = [
 ];
 
 export default function HelpPage() {
-  // Dummy state/handlers needed for ChatLayout compatibility
-  // In a real app, this might come from a shared context or layout component
-  const [dummySubject, setDummySubject] = useState(subjects[0].value);
-  const handleDummyNewChat = () => console.log("New Chat clicked from Help");
+   // State needed for AppLayout props (passed down to ChatSidebar)
+  // Use dummy/mock data and handlers - similar to ActivityPage/SettingsPage
+  const [chatHistory] = useState<ChatHistoryItem[]>([
+   
+  ]);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<string>(subjects[0].value); // Default subject
+  const [isLoading] = useState(false); // Not loading for Help page
+
+  const handleSelectChat = (id: string) => {
+    console.log(`Help Page: Chat selected ${id}`);
+    setCurrentChatId(id);
+    // In real app, might navigate or load chat context
+  };
+
+  const handleNewChat = () => {
+    console.log("Help Page: New Chat clicked");
+    setCurrentChatId(null);
+  };
+
+  const handleSubjectChange = (value: string) => {
+    console.log(`Help Page: Subject changed to ${value}`);
+    setSelectedSubject(value);
+  };
 
   return (
-    <ChatLayout
-      subjects={subjects}
-      selectedSubject={dummySubject} 
-      onSubjectChange={setDummySubject} // Or a no-op function
-      isLoading={false} // Assume not loading
-      onNewChat={handleDummyNewChat} // Or a no-op function
+    <AppLayout // Use AppLayout
+      // Props for sidebar
+      chatHistory={chatHistory}
+      onSelectChat={handleSelectChat}
+      currentChatId={currentChatId}
+      onNewChat={handleNewChat}
+      selectedSubject={selectedSubject}
+      onSubjectChange={handleSubjectChange}
+      isLoading={isLoading}
     >
       {/* Main Content for Help Page */}
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
@@ -53,6 +82,6 @@ export default function HelpPage() {
           </div>
         </div>
       </div>
-    </ChatLayout>
+    </AppLayout> // Close AppLayout
   );
-} 
+}

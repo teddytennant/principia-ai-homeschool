@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { BrainCircuit, ShieldCheck, Plug, Zap } from 'lucide-react'; // Example icons
+import { BrainCircuit, ShieldCheck, Plug } from 'lucide-react'; // Example icons
 import { cn } from "@/lib/utils"; // Assuming utils for cn
 
 interface FeatureCardProps {
