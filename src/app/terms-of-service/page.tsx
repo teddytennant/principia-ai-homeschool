@@ -122,7 +122,7 @@ export default function TermsOfServicePage() {
         <section>
           <h2 className="text-2xl font-semibold mb-4 text-white">Contact Us</h2>
           <p className="text-gray-100 leading-relaxed">
-            If you have any questions about these Terms of Service, please contact us at:
+            If you have any questions about these Terms, please contact us at hello@principia-ai.com. We&#39;re here to help you understand your rights and obligations.
           </p>
           <p className="text-gray-100 mt-2">
             Email: legal@principia-ai.com<br />

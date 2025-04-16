@@ -15,7 +15,7 @@ interface UploadingFile {
     file: File; // The actual file object for content extraction
 }
 
-type CurriculumUploaderProps = React.HTMLAttributes<HTMLDivElement>; // No need for empty interface
+type CurriculumUploaderProps = React.HTMLAttributes<HTMLDivElement>;
 
 const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderProps>(
     ({ className, ...props }, ref) => {
@@ -23,7 +23,6 @@ const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderPr
         const { settings, addCurriculumItem, removeCurriculumItem } = useTeacherSettings();
         const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
         const [isDragging, setIsDragging] = useState(false);
-        // const [isProcessing, setIsProcessing] = useState(false);
 
         const processFiles = useCallback(async (files: File[]) => {
             const newUploadingFiles = files.map((file) => ({

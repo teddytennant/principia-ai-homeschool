@@ -116,7 +116,7 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-2xl font-semibold mb-4 text-white">Changes to This Policy</h2>
           <p className="text-gray-100 leading-relaxed">
             We may update this Privacy Policy from time to time. We will notify you of significant changes 
-            by posting the new policy on this page with an updated effective date.
+            by posting the new policy on this page with an updated effective date. If you have any questions about this Privacy Policy, please contact us at hello@principia-ai.com or write to us at Principia AI, 123 Learning Lane, Knowledge City, USA. We&#39;re here to help you understand your rights and how your data is used.
           </p>
         </section>
         

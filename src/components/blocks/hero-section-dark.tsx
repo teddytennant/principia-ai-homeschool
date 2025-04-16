@@ -186,6 +186,14 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
             variants={containerVariants}
             className="max-w-screen-xl z-10 mx-auto px-4 py-24 md:py-32 gap-8 md:px-8"
           >
+            <Image
+              src="/images/hero-ai-dark.png"
+              alt="AI Illustration"
+              width={900}
+              height={600}
+              className="relative z-10 w-full max-w-lg mx-auto md:max-w-2xl lg:max-w-3xl"
+              priority
+            />
             <div className="space-y-6 max-w-4xl mx-auto text-center">
               <motion.h1 variants={itemVariants} className="text-sm text-indigo-300 group font-geist mx-auto px-4 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full w-fit shadow-sm shadow-indigo-500/20">
                 {title}
