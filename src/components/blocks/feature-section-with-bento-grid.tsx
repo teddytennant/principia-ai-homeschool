@@ -132,16 +132,16 @@ function AnimatedCardIcon({ children }: { children: React.ReactNode }) {
 
 // --- ENHANCE SKELETONS TO USE ANIMATED ICON ---
 function SkeletonOne() {
-  return <AnimatedCardIcon>{/* Place your icon here if desired */}</AnimatedCardIcon>;
+  return <AnimatedCardIcon><></></AnimatedCardIcon>;
 }
 function SkeletonTwo() {
-  return <AnimatedCardIcon>{/* Place your icon here if desired */}</AnimatedCardIcon>;
+  return <AnimatedCardIcon><></></AnimatedCardIcon>;
 }
 function SkeletonThree() {
-  return <AnimatedCardIcon>{/* Place your icon here if desired */}</AnimatedCardIcon>;
+  return <AnimatedCardIcon><></></AnimatedCardIcon>;
 }
 function SkeletonFour() {
-  return <AnimatedCardIcon>{/* Place your icon here if desired */}</AnimatedCardIcon>;
+  return <AnimatedCardIcon><></></AnimatedCardIcon>;
 }
 
 export const Globe = ({ className }: { className?: string }) => {

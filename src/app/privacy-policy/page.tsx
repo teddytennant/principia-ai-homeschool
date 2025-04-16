@@ -87,10 +87,10 @@ export default function PrivacyPolicyPage() {
         </section>
         
         <section>
-          <h2 className="text-2xl font-semibold mb-4 text-white">Children's Privacy</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-white">Children&apos;s Privacy</h2>
           <p className="text-gray-100 leading-relaxed">
             Our services may be used by children under the age of 13 with parental consent. 
-            We comply with the Children's Online Privacy Protection Act (COPPA) and other relevant laws. 
+            We comply with the Children&apos;s Online Privacy Protection Act (COPPA) and other relevant laws. 
             If you are a parent or guardian and believe your child has provided us with personal information, 
             please contact us immediately.
           </p>

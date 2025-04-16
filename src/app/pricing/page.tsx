@@ -147,7 +147,7 @@ export default function PricingPage() {
           animate="visible"
           className="grid grid-cols-1 gap-10 items-stretch max-w-2xl mx-auto"
         >
-          {plans.map((plan, index) => (
+          {plans.map((plan) => (
             <PricingCard key={plan.planName} {...plan} />
           ))}
         </motion.div>

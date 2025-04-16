@@ -108,34 +108,26 @@ export default function ChatPage() {
     const currentInput = input.trim();
     
     const userMessage: Message = { role: "user", content: currentInput };
-    let chatIdToUpdate = currentChatId;
-    // Only create a new chat ID if there isn't one already
-    if (chatIdToUpdate === null) {
-      chatIdToUpdate = uuidv4();
+    const chatIdToUpdate = currentChatId ?? uuidv4();
+    // If it's a new chat, add to chat history and set current chat ID
+    if (currentChatId === null) {
       const newChatTitle = currentInput.length > 30 
           ? currentInput.substring(0, 27) + '...'
           : currentInput;
       const newChatItem: ChatHistoryItem = { id: chatIdToUpdate, title: newChatTitle };
       setChatHistory(prev => [newChatItem, ...prev]);
-      setAllChatMessages(prevStore => ({
-        ...prevStore,
-        [chatIdToUpdate]: []
+      setAllChatMessages(prev => ({
+        ...prev,
+        [chatIdToUpdate]: [userMessage],
       }));
       setCurrentChatId(chatIdToUpdate);
+    } else {
+      setAllChatMessages(prev => ({
+        ...prev,
+        [chatIdToUpdate]: [...(prev[chatIdToUpdate] || []), userMessage],
+      }));
     }
     setMessages(prev => [...prev, userMessage]);
-    if (chatIdToUpdate) {
-      setAllChatMessages(prevStore => {
-        const newStore = { ...prevStore };
-        Object.defineProperty(newStore, chatIdToUpdate, {
-          value: [...(prevStore[chatIdToUpdate] || []), userMessage],
-          writable: true,
-          enumerable: true,
-          configurable: true
-        });
-        return newStore;
-      });
-    }
     setInput("");
     setError(null);
     
@@ -163,8 +155,8 @@ export default function ChatPage() {
       if (chatIdToUpdate) {
         setAllChatMessages(prevStore => {
           const newStore = { ...prevStore };
-          Object.defineProperty(newStore, chatIdToUpdate, {
-            value: [...(prevStore[chatIdToUpdate] || []), assistantMessage],
+          Object.defineProperty(newStore, chatIdToUpdate as string, {
+            value: [...(prevStore[chatIdToUpdate as string] || []), assistantMessage],
             writable: true,
             enumerable: true,
             configurable: true

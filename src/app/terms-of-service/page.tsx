@@ -39,7 +39,7 @@ export default function TermsOfServicePage() {
           <ul className="list-disc pl-5 space-y-2 text-gray-100">
             <li>Use the platform in any way that violates applicable laws or regulations</li>
             <li>Engage in unauthorized access to any part of the platform</li>
-            <li>Interfere with or disrupt the platform's functionality</li>
+            <li>Interfere with or disrupt the platform&apos;s functionality</li>
             <li>Upload or transmit viruses or other harmful code</li>
             <li>Engage in harassment, bullying, or other harmful behavior towards other users</li>
           </ul>

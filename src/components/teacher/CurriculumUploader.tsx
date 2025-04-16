@@ -15,7 +15,7 @@ interface UploadingFile {
     file: File; // The actual file object for content extraction
 }
 
-interface CurriculumUploaderProps extends React.HTMLAttributes<HTMLDivElement> {}
+type CurriculumUploaderProps = React.HTMLAttributes<HTMLDivElement>; // No need for empty interface
 
 const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderProps>(
     ({ className, ...props }, ref) => {
@@ -23,69 +23,50 @@ const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderPr
         const { settings, addCurriculumItem, removeCurriculumItem } = useTeacherSettings();
         const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
         const [isDragging, setIsDragging] = useState(false);
-        const [isProcessing, setIsProcessing] = useState(false);
+        // const [isProcessing, setIsProcessing] = useState(false);
 
-        // Function to read file content
-        const readFileContent = (file: File): Promise<string> => {
-            return new Promise((resolve, reject) => {
-                // For text files, PDFs, and DOCXs we would use different methods
-                // This is a simplified version that works for text files
-                const reader = new FileReader();
-                
-                reader.onload = (event) => {
-                    if (event.target?.result) {
-                        resolve(event.target.result as string);
-                    } else {
-                        reject(new Error("Failed to read file content"));
-                    }
-                };
-                
-                reader.onerror = () => {
-                    reject(new Error("Error reading file"));
-                };
-                
-                // Read as text for now - in a real app, you'd use different methods based on file type
-                reader.readAsText(file);
-            });
-        };
+        const processFiles = useCallback(async (files: File[]) => {
+            const newUploadingFiles = files.map((file) => ({
+                id: uuidv4(),
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                file,
+            }));
 
-        const processFiles = async (files: File[]) => {
-            setIsProcessing(true);
-            try {
-                // First add files to uploading state for UI feedback
-                const newUploadingFiles: UploadingFile[] = files.map((file) => ({
-                    id: uuidv4(),
-                    name: file.name,
-                    size: file.size,
-                    type: file.type,
-                    file: file
-                }));
-                setUploadingFiles(prev => [...prev, ...newUploadingFiles]);
-                // Process each file to extract content and summarize
-                for (const uploadingFile of newUploadingFiles) {
-                    try {
-                        // Extract content from the file
-                        const content = await readFileContent(uploadingFile.file);
-                        // Create a curriculum item and add it to the context
-                        const curriculumItem: CurriculumItem = {
-                            id: uploadingFile.id,
-                            name: uploadingFile.name,
-                            content: content,
-                            type: uploadingFile.type,
-                            uploadedAt: new Date()
-                        };
-                        addCurriculumItem(curriculumItem);
-                        setUploadingFiles(prev => prev.filter(file => file.id !== uploadingFile.id));
-                    } catch (error) {
-                        console.error(`Error processing file ${uploadingFile.name}:`, error);
-                        // Keep the file in the uploading state but mark it as failed
-                        // In a real app, you'd update the UI to show the error
-                    }
+            setUploadingFiles(prev => [...prev, ...newUploadingFiles]);
+
+            const readFileContent = (file: File): Promise<string> => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsText(file);
+                });
+            };
+
+            // Process each file to extract content and summarize
+            for (const uploadingFile of newUploadingFiles) {
+                try {
+                    // Extract content from the file
+                    const content = await readFileContent(uploadingFile.file);
+                    // Create a curriculum item and add it to the context
+                    const curriculumItem: CurriculumItem = {
+                        id: uploadingFile.id,
+                        name: uploadingFile.name,
+                        content: content,
+                        type: uploadingFile.type,
+                        uploadedAt: new Date()
+                    };
+                    addCurriculumItem(curriculumItem);
+                    setUploadingFiles(prev => prev.filter(file => file.id !== uploadingFile.id));
+                } catch (error) {
+                    console.error(`Error processing file ${uploadingFile.name}:`, error);
+                    // Keep the file in the uploading state but mark it as failed
+                    // In a real app, you'd update the UI to show the error
                 }
-            } finally {
-                setIsProcessing(false);
             }
-        };
+        }, [addCurriculumItem, setUploadingFiles]);
 
         const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
             if (event.target.files) {

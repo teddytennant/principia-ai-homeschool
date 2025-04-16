@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from 'next/link'
+import Image from 'next/image'
 import { cn } from "@/lib/utils"
 import { ChevronRight } from "lucide-react"
 import { motion } from 'framer-motion'
@@ -226,15 +227,21 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
             </div>
             {bottomImage && (
               <motion.div variants={itemVariants} className="mt-16 md:mt-24 mx-auto max-w-5xl relative z-10">
-                <img
+                <Image
                   src={bottomImage.light}
                   className="w-full rounded-xl border border-gray-200 shadow-2xl dark:hidden"
                   alt="Product preview light mode"
+                  width={1200}
+                  height={800}
+                  priority
                 />
-                <img
+                <Image
                   src={bottomImage.dark}
                   className="w-full rounded-xl border border-indigo-500/30 shadow-xl shadow-indigo-500/20 dark:block"
                   alt="Product preview dark mode"
+                  width={1200}
+                  height={800}
+                  priority
                 />
               </motion.div>
             )}
