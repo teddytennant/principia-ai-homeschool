@@ -76,9 +76,9 @@ export function TeacherSettingsProvider({ children }: { children: ReactNode }) {
         const parsedSettings = JSON.parse(savedSettings);
         // Convert string dates back to Date objects for curriculum items
         if (parsedSettings.curriculum) {
-          parsedSettings.curriculum = parsedSettings.curriculum.map((item: any) => ({
+          parsedSettings.curriculum = parsedSettings.curriculum.map((item: CurriculumItem) => ({
             ...item,
-            uploadedAt: new Date(item.uploadedAt)
+            uploadedAt: typeof item.uploadedAt === 'string' ? new Date(item.uploadedAt) : item.uploadedAt
           }));
         }
         setSettings(parsedSettings);

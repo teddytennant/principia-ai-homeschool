@@ -24,9 +24,9 @@ interface ChatHistoryItem {
 }
 
 // Type for storing messages per chat
-type ChatMessagesStore = {
-  [chatId: string]: Message[];
-};
+interface ChatMessagesStore {
+  [key: string]: Message[];
+}
 
 // Define subjects
 const subjects = [
@@ -109,7 +109,7 @@ export default function ChatPage() {
     
     const userMessage: Message = { role: "user", content: currentInput };
     let chatIdToUpdate = currentChatId;
-    // If it's a new chat session
+    // Only create a new chat ID if there isn't one already
     if (chatIdToUpdate === null) {
       chatIdToUpdate = uuidv4();
       const newChatTitle = currentInput.length > 30 
@@ -121,28 +121,58 @@ export default function ChatPage() {
         ...prevStore,
         [chatIdToUpdate]: []
       }));
+      setCurrentChatId(chatIdToUpdate);
     }
     setMessages(prev => [...prev, userMessage]);
-    setAllChatMessages(prevStore => ({
-      ...prevStore,
-      [chatIdToUpdate]: [...(prevStore[chatIdToUpdate] || []), userMessage]
-    }));
+    if (chatIdToUpdate) {
+      setAllChatMessages(prevStore => {
+        const newStore = { ...prevStore };
+        Object.defineProperty(newStore, chatIdToUpdate, {
+          value: [...(prevStore[chatIdToUpdate] || []), userMessage],
+          writable: true,
+          enumerable: true,
+          configurable: true
+        });
+        return newStore;
+      });
+    }
     setInput("");
     setError(null);
     
     try {
-      // TODO: Include chatIdToUpdate in the API request if needed for context/saving
       setIsLoading(true);
-      // Simulate API call delay
-      setTimeout(() => {
-        const assistantMessage: Message = { role: "assistant", content: `Echo: ${currentInput}` };
-        setMessages(prev => [...prev, assistantMessage]);
-        setAllChatMessages(prevStore => ({
-          ...prevStore,
-          [chatIdToUpdate!]: [...(prevStore[chatIdToUpdate!] || []), assistantMessage]
-        }));
-        setIsLoading(false);
-      }, 1000);
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userMessage.content,
+          subject: selectedSubject,
+          history: messages,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      const assistantMessage: Message = { role: "assistant", content: data.message };
+      setMessages(prev => [...prev, assistantMessage]);
+      if (chatIdToUpdate) {
+        setAllChatMessages(prevStore => {
+          const newStore = { ...prevStore };
+          Object.defineProperty(newStore, chatIdToUpdate, {
+            value: [...(prevStore[chatIdToUpdate] || []), assistantMessage],
+            writable: true,
+            enumerable: true,
+            configurable: true
+          });
+          return newStore;
+        });
+      }
+      setIsLoading(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
       setError(`${errorMessage}`);

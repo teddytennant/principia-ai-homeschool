@@ -65,8 +65,18 @@ const getTeacherSettings = async () => {
   }
 };
 
+// Define interface for teacher settings
+interface TeacherSettings {
+  isAiEnabled: boolean;
+  aiOpenness: number;
+  gradeLevel: string;
+  curriculum: Array<{ name: string; content: string }>;
+  subjects: Array<{ id: string; name: string }>;
+  additionalContext: string;
+}
+
 // Helper function to generate system prompt based on settings
-const generateSystemPrompt = (subject: string, settings: unknown) => {
+const generateSystemPrompt = (subject: string, settings: TeacherSettings) => {
   // Check if AI is enabled
   if (!settings.isAiEnabled) {
     return "The AI assistant is currently disabled by your teacher. Please try again later or contact your teacher for assistance.";
@@ -74,12 +84,12 @@ const generateSystemPrompt = (subject: string, settings: unknown) => {
 
   // Check if the requested subject is one that the teacher teaches
   const teacherSubjects = settings.subjects || [{ id: 'general', name: 'General' }];
-  const isSubjectTaught = subject === 'general' || teacherSubjects.some((s: { id: string }) => s.id === subject || s.id === 'general');
+  const isSubjectTaught = subject === 'general' || teacherSubjects.some((s) => s.id === subject || s.id === 'general');
   
   // If the subject is not taught by the teacher, default to general
   const effectiveSubject = isSubjectTaught ? subject : 'general';
   const subjectName = effectiveSubject === 'general' ? 'General' : 
-    teacherSubjects.find((s: { id: string, name: string }) => s.id === effectiveSubject)?.name || effectiveSubject;
+    teacherSubjects.find((s) => s.id === effectiveSubject)?.name || effectiveSubject;
 
   // Base prompt
   let systemPrompt = "You are Principia AI, a helpful learning assistant designed for school use.";
@@ -99,15 +109,15 @@ const generateSystemPrompt = (subject: string, settings: unknown) => {
   // Adjust teaching style based on openness setting
   const aiOpenness = settings.aiOpenness || 50;
   if (aiOpenness < 20) {
-    systemPrompt += " Use a strongly Socratic approach. Primarily ask guiding questions and avoid giving direct answers. Focus on helping students discover answers themselves through critical thinking.";
+    systemPrompt += " Use a strongly Socratic approach. Primarily ask guiding questions and avoid giving direct answers. Focus on helping students discover answers themselves through critical thinking. Do not include phrases like 'Pause for student response' or guide towards specific ideas like ethics or morality. Keep responses concise.";
   } else if (aiOpenness < 40) {
-    systemPrompt += " Use a mostly Socratic approach. Favor questions but offer hints when students are struggling. Guide students toward answers rather than providing them directly.";
+    systemPrompt += " Use a mostly Socratic approach. Favor questions but offer hints when students are struggling. Guide students toward answers rather than providing them directly. Do not include phrases like 'Pause for student response' or guide towards specific ideas like ethics or morality. Keep responses concise.";
   } else if (aiOpenness < 60) {
-    systemPrompt += " Balance Socratic questioning with direct instruction. Mix questions with explanations to help students understand concepts while still encouraging critical thinking.";
+    systemPrompt += " Balance Socratic questioning with direct instruction. Mix questions with explanations to help students understand concepts while still encouraging critical thinking. Do not include phrases like 'Pause for student response' or guide towards specific ideas like ethics or morality. Keep responses concise.";
   } else if (aiOpenness < 80) {
-    systemPrompt += " Provide mostly direct explanations but encourage reflection. Offer clear answers and explanations, but still ask questions to check understanding and promote deeper thinking.";
+    systemPrompt += " Provide mostly direct explanations but encourage reflection. Offer clear answers and explanations, but still ask questions to check understanding and promote deeper thinking. Do not include phrases like 'Pause for student response' or guide towards specific ideas like ethics or morality. Keep responses concise.";
   } else {
-    systemPrompt += " Provide direct answers and thorough explanations. Focus on clarity and completeness in your responses, while still maintaining an educational tone.";
+    systemPrompt += " Provide direct answers and thorough explanations. Focus on clarity and completeness in your responses, while still maintaining an educational tone. Do not include phrases like 'Pause for student response' or guide towards specific ideas like ethics or morality. Keep responses concise.";
   }
   
   // Add subject-specific context
@@ -124,7 +134,7 @@ const generateSystemPrompt = (subject: string, settings: unknown) => {
 };
 
 // Helper function to format curriculum content for context
-const formatCurriculumContext = (curriculum: unknown[]) => {
+const formatCurriculumContext = (curriculum: Array<{ name: string; content: string }>) => {
   if (!curriculum || curriculum.length === 0) {
     return "";
   }
@@ -139,6 +149,56 @@ const formatCurriculumContext = (curriculum: unknown[]) => {
   context += "Use the above curriculum materials as context for your responses when relevant.\n";
   
   return context;
+};
+
+// Placeholder for student token usage tracking (in a real scenario, this would be a database)
+const studentTokenUsage: { [studentId: string]: { inputTokens: number; outputTokens: number; totalCost: number } } = {};
+
+// Helper function to calculate token count from a string (rough estimate)
+const countTokens = (text: string): number => {
+  // Rough estimation: 1 token per 4 characters
+  return Math.ceil(text.length / 4);
+};
+
+// Helper function to get student ID from cookies or request (placeholder)
+const getStudentId = async (): Promise<string> => {
+  // In a real implementation, this would extract student ID from auth cookies or session
+  const cookieStore = await cookies();
+  const studentId = cookieStore.get('studentId')?.value || 'default-student';
+  return studentId;
+};
+
+// Helper function to check and update token usage for a student
+const checkAndUpdateTokenUsage = async (inputText: string, outputText: string): Promise<{ allowed: boolean; message?: string }> => {
+  const studentId = await getStudentId();
+  const inputTokens = countTokens(inputText);
+  const outputTokens = countTokens(outputText);
+  
+  // Cost calculation: $0.1 per million input tokens, $0.4 per million output tokens
+  const inputCost = (inputTokens / 1000000) * 0.1;
+  const outputCost = (outputTokens / 1000000) * 0.4;
+  const requestCost = inputCost + outputCost;
+  
+  // Initialize or update student usage
+  if (!studentTokenUsage[studentId]) {
+    studentTokenUsage[studentId] = { inputTokens: 0, outputTokens: 0, totalCost: 0 };
+  }
+  
+  const currentUsage = studentTokenUsage[studentId];
+  const newTotalCost = currentUsage.totalCost + requestCost;
+  
+  // Check against limit of $0.50 per student
+  if (newTotalCost > 0.5) {
+    return { allowed: false, message: `Token limit exceeded. You've reached the maximum cost of $0.50 per student. Current cost would be $${newTotalCost.toFixed(4)}.` };
+  }
+  
+  // Update usage if within limit
+  currentUsage.inputTokens += inputTokens;
+  currentUsage.outputTokens += outputTokens;
+  currentUsage.totalCost = newTotalCost;
+  
+  console.log(`Student ${studentId} token usage: Input=${currentUsage.inputTokens}, Output=${currentUsage.outputTokens}, Cost=$${currentUsage.totalCost.toFixed(4)}`);
+  return { allowed: true };
 };
 
 export async function POST(req: NextRequest) {
@@ -182,6 +242,9 @@ export async function POST(req: NextRequest) {
     
     console.log("Using System Prompt:", fullSystemPrompt); // Log the system prompt
 
+    // Rough estimate of input text for token limit check (before API call)
+    const inputTextForCheck = fullSystemPrompt + message + JSON.stringify(chatHistory);
+    
     // Call OpenRouter API with Gemini 2.0 Flash
     console.log("Calling OpenRouter API (Gemini 2.0 Flash)...");
     const completion = await openrouter.chat.completions.create({
@@ -207,8 +270,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to get valid response content from AI model' }, { status: 500 });
     }
 
+    // Check token usage and cost limit after receiving response
+    const tokenCheck = await checkAndUpdateTokenUsage(inputTextForCheck, assistantResponse);
+    if (!tokenCheck.allowed) {
+      return NextResponse.json({ error: tokenCheck.message || 'Token limit exceeded for this student.' }, { status: 402 });
+    }
+
     console.log("Sending response back to client.");
-    return NextResponse.json({ content: assistantResponse });
+    return NextResponse.json({ message: assistantResponse });
 
   } catch (error) {
     // Log the specific error object

@@ -18,9 +18,7 @@ import {
 // import { Slider } from "@/components/ui/slider";
 // import { Label } from "@/components/ui/label";
 
-interface SettingsControlsProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-// Placeholder data - replace with actual grade levels
+ // Placeholder data - replace with actual grade levels
 const gradeLevels = [
     { value: 'k', label: 'Kindergarten' },
     { value: '1', label: '1st Grade' },
@@ -38,7 +36,7 @@ const gradeLevels = [
     { value: 'higher_ed', label: 'Higher Education' },
 ];
 
-const SettingsControls = React.forwardRef<HTMLDivElement, SettingsControlsProps>(
+const SettingsControls = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
     ({ className, ...props }, ref) => {
         // Use the teacher settings context
         const { settings, updateSettings } = useTeacherSettings();

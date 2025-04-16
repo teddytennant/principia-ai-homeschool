@@ -216,7 +216,7 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
                 {description}
               </motion.p>
               <motion.p variants={itemVariants} className="max-w-3xl mx-auto text-indigo-300 text-xl font-semibold italic mt-4">
-                "Teaching students how to think, not what to think."
+                Teaching students how to think, not what to think.
               </motion.p>
               <motion.div variants={itemVariants} className="items-center justify-center pt-8">
                 <Link href={ctaHref}>

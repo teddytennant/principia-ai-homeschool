@@ -2,11 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { Eye, User, Clock, MessageCircle, FileUp, LogOut, RefreshCw } from 'lucide-react'; // Icons
+import { User, Clock, MessageCircle, FileUp, LogOut, RefreshCw } from 'lucide-react'; // Icons
 
-interface StudentActivityMonitorProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-// Placeholder data structure for student activity
+ // Placeholder data structure for student activity
 interface ActivityLog {
     id: string;
     studentName: string;
@@ -32,7 +30,7 @@ const fetchStudentActivity = async (): Promise<ActivityLog[]> => {
     ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Sort newest first
 };
 
-const StudentActivityMonitor = React.forwardRef<HTMLDivElement, StudentActivityMonitorProps>(
+const StudentActivityMonitor = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
     ({ className, ...props }, ref) => {
         const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
         const [isLoading, setIsLoading] = useState(true);

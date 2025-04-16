@@ -6,9 +6,7 @@ import { UploadCloud, FileText, X } from 'lucide-react'; // Icons for UI
 import { useTeacherSettings, CurriculumItem } from '@/lib/teacher-settings-context';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid for unique IDs
 
-interface CurriculumUploaderProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-// Local interface for files being uploaded (before content extraction)
+ // Local interface for files being uploaded (before content extraction)
 interface UploadingFile {
     id: string;
     name: string;
@@ -17,6 +15,8 @@ interface UploadingFile {
     file: File; // The actual file object for content extraction
 }
 
+interface CurriculumUploaderProps extends React.HTMLAttributes<HTMLDivElement> {}
+
 const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderProps>(
     ({ className, ...props }, ref) => {
         // Use the teacher settings context
@@ -24,43 +24,6 @@ const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderPr
         const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
         const [isDragging, setIsDragging] = useState(false);
         const [isProcessing, setIsProcessing] = useState(false);
-
-        const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-            if (event.target.files) {
-                processFiles(Array.from(event.target.files));
-            }
-            // Reset input value to allow uploading the same file again
-            event.target.value = '';
-        };
-
-        const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-            event.preventDefault();
-            event.stopPropagation();
-            setIsDragging(false);
-            if (event.dataTransfer.files) {
-                processFiles(Array.from(event.dataTransfer.files));
-            }
-        }, []); // Empty dependency array as processFiles doesn't depend on external state here
-
-        const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-            event.preventDefault();
-            event.stopPropagation();
-        }, []);
-
-        const handleDragEnter = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-            event.preventDefault();
-            event.stopPropagation();
-            setIsDragging(true);
-        }, []);
-
-        const handleDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-            event.preventDefault();
-            event.stopPropagation();
-            // Check if the leave target is outside the drop zone
-             if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-                setIsDragging(false);
-            }
-        }, []);
 
         // Function to read file content
         const readFileContent = (file: File): Promise<string> => {
@@ -103,27 +66,13 @@ const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderPr
                     try {
                         // Extract content from the file
                         const content = await readFileContent(uploadingFile.file);
-                        // Summarize curriculum content via backend
-                        let summary = '';
-                        try {
-                            const res = await fetch('/api/summarize', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ content }),
-                            });
-                            const data = await res.json();
-                            summary = data.summary || '';
-                        } catch (summarizeErr) {
-                            console.error('Failed to summarize curriculum:', summarizeErr);
-                        }
                         // Create a curriculum item and add it to the context
                         const curriculumItem: CurriculumItem = {
                             id: uploadingFile.id,
                             name: uploadingFile.name,
                             content: content,
                             type: uploadingFile.type,
-                            uploadedAt: new Date(),
-                            summary // Attach summary for later use in prompts
+                            uploadedAt: new Date()
                         };
                         addCurriculumItem(curriculumItem);
                         setUploadingFiles(prev => prev.filter(file => file.id !== uploadingFile.id));
@@ -137,6 +86,43 @@ const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderPr
                 setIsProcessing(false);
             }
         };
+
+        const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+            if (event.target.files) {
+                processFiles(Array.from(event.target.files));
+            }
+            // Reset input value to allow uploading the same file again
+            event.target.value = '';
+        };
+
+        const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setIsDragging(false);
+            if (event.dataTransfer.files) {
+                processFiles(Array.from(event.dataTransfer.files));
+            }
+        }, [processFiles]); // Include processFiles as a dependency
+
+        const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+            event.preventDefault();
+            event.stopPropagation();
+        }, []);
+
+        const handleDragEnter = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setIsDragging(true);
+        }, []);
+
+        const handleDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+            event.preventDefault();
+            event.stopPropagation();
+            // Check if the leave target is outside the drop zone
+             if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                setIsDragging(false);
+            }
+        }, []);
 
         const removeFile = (id: string) => {
             // Remove from context

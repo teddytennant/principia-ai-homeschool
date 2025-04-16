@@ -31,8 +31,7 @@ const PricingCard: React.FC<PricingCardProps> = ({
   ctaText,
   ctaHref,
   isFeatured,
-  isContact,
-  index
+  isContact
 }) => {
   const cardVariants = {
     hidden: { opacity: 1, y: 0 },
@@ -149,7 +148,7 @@ export default function PricingPage() {
           className="grid grid-cols-1 gap-10 items-stretch max-w-2xl mx-auto"
         >
           {plans.map((plan, index) => (
-            <PricingCard key={plan.planName} {...plan} index={index} />
+            <PricingCard key={plan.planName} {...plan} />
           ))}
         </motion.div>
       </div>

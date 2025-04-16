@@ -82,7 +82,7 @@ export default function SettingsPage() {
             
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-neutral-300">Theme</label>
-                 <p className="text-xs text-gray-500 dark:text-neutral-400 mb-3">Select how Principia AI looks. "System" will match your OS preference.</p>
+                 <p className="text-xs text-gray-500 dark:text-neutral-400 mb-3">Select how Principia AI looks. System setting will match your OS preference.</p>
                  {mounted && (
                     <div className="flex space-x-2 rounded-lg bg-gray-100 dark:bg-neutral-800 p-1">
                         {themeOptions.map(opt => {

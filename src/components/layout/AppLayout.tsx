@@ -11,14 +11,7 @@ interface ChatHistoryItem {
   title: string;
 }
 
-// Define subject type (can be shared)
-interface Subject {
-    value: string;
-    label: string;
-    icon: React.ElementType;
-}
-
-// Define subjects here or import from a shared location
+ // Define subjects here or import from a shared location
 // These are needed by the sidebar for the dropdown
 const subjects = [
   { value: "general", label: "General", icon: BrainCircuit },

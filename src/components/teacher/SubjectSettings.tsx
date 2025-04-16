@@ -6,9 +6,7 @@ import { useTeacherSettings, Subject, defaultSubjects } from '@/lib/teacher-sett
 import { Plus, X, Check } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
-interface SubjectSettingsProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-const SubjectSettings = React.forwardRef<HTMLDivElement, SubjectSettingsProps>(
+const SubjectSettings = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => {
     const { settings, updateSettings } = useTeacherSettings();
     const [newSubjectName, setNewSubjectName] = useState('');
@@ -213,14 +211,14 @@ const SubjectSettings = React.forwardRef<HTMLDivElement, SubjectSettingsProps>(
             className="w-full h-40 p-3 bg-gray-700 border border-gray-600 text-gray-200 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
           />
           <div className="bg-gray-800/50 border border-gray-700/80 rounded-md p-3">
-            <h5 className="text-xs font-medium text-gray-300 mb-2">Examples:</h5>
-            <ul className="text-xs text-gray-400 space-y-1.5 ml-4 list-disc">
-              <li>"Focus on Common Core standards for all math responses"</li>
-              <li>"Emphasize critical thinking and problem-solving approaches"</li>
-              <li>"Include real-world examples relevant to student interests"</li>
-              <li>"Always encourage students to show their work in math problems"</li>
-              <li>"Reference historical context when discussing literature"</li>
-            </ul>
+              <h5 className="text-xs font-medium text-gray-300 mb-2">Examples:</h5>
+              <ul className="text-xs text-gray-400 space-y-1.5 ml-4 list-disc">
+                <li>Focus on Common Core standards for all math responses</li>
+                <li>Emphasize critical thinking and problem-solving approaches</li>
+                <li>Include real-world examples relevant to student interests</li>
+                <li>Always encourage students to show their work in math problems</li>
+                <li>Reference historical context when discussing literature</li>
+              </ul>
           </div>
         </div>
       </div>

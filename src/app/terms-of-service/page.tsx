@@ -18,7 +18,7 @@ export default function TermsOfServicePage() {
           <h2 className="text-2xl font-semibold mb-4 text-white">Acceptance of Terms</h2>
           <p className="text-gray-100 leading-relaxed">
             By accessing or using the Principia AI platform, you agree to be bound by these Terms of Service 
-            ("Terms") and our Privacy Policy. If you do not agree to these Terms, you may not use our services.
+            (referred to as Terms) and our Privacy Policy. If you do not agree to these Terms, you may not use our services.
           </p>
         </section>
         
@@ -75,7 +75,7 @@ export default function TermsOfServicePage() {
         <section>
           <h2 className="text-2xl font-semibold mb-4 text-white">Disclaimer of Warranties</h2>
           <p className="text-gray-100 leading-relaxed">
-            Our services are provided on an "as is" and "as available" basis. We disclaim all warranties, express or 
+            Our services are provided on an as-is and as-available basis. We disclaim all warranties, express or 
             implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, 
             and non-infringement.
           </p>
@@ -95,7 +95,7 @@ export default function TermsOfServicePage() {
           <h2 className="text-2xl font-semibold mb-4 text-white">Indemnification</h2>
           <p className="text-gray-100 leading-relaxed">
             You agree to indemnify and hold harmless Principia AI, its affiliates, officers, directors, employees, 
-            and agents from any claims, liabilities, damages, or expenses, including reasonable attorneys' fees, 
+            and agents from any claims, liabilities, damages, or expenses, including reasonable attorney fees, 
             arising out of your use of the platform or violation of these Terms.
           </p>
         </section>
