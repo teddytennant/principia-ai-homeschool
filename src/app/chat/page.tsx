@@ -37,7 +37,9 @@ const subjects = [
   { value: "english", label: "English", icon: BookOpen },
 ];
 
-export default function ChatPage() {
+import { AuthGuard } from "./AuthGuard";
+
+function ChatPage() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -359,5 +361,13 @@ export default function ChatPage() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+export default function ProtectedChatPage() {
+  return (
+    <AuthGuard>
+      <ChatPage />
+    </AuthGuard>
   );
 }
