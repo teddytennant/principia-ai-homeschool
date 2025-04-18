@@ -14,9 +14,14 @@ import { supabase } from '@/lib/supabaseClient';
 export default function StudentSignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
     const userEmail = email.trim();
     const userPassword = password;
 
@@ -28,12 +33,45 @@ export default function StudentSignIn() {
     console.log("Sign-in response:", { error, data });
 
     if (error) {
-      alert('Sign-in failed: ' + error.message);
+      setIsLoading(false);
+      setError("Wrong password, try again");
     } else if (data && data.session) {
-      // Only redirect if session exists
-      window.location.href = '/chat';
+      // Check if the user has the 'student' role
+      const { data: profileDataArray, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .limit(1);
+
+      console.log("Profile fetch response:", { profileDataArray, profileError });
+
+      if (profileError) {
+        setIsLoading(false);
+        setError("Warning: Unable to verify student status due to error: " + profileError.message + ". Proceeding to dashboard for debugging.");
+        console.log("Proceeding to chat despite profile fetch error for user ID:", data.user.id);
+        // Delay redirect to ensure error message is visible
+        setTimeout(() => {
+          window.location.href = '/chat';
+        }, 2000);
+      } else if (!profileDataArray || profileDataArray.length === 0) {
+        setIsLoading(false);
+        setError("Warning: No profile found for this account. Proceeding to dashboard for debugging.");
+        console.log("No profile found for user ID:", data.user.id, ". Proceeding to chat.");
+        // Delay redirect to ensure error message is visible
+        setTimeout(() => {
+          window.location.href = '/chat';
+        }, 2000);
+      } else if (profileDataArray[0].role !== 'student') {
+        setIsLoading(false);
+        setError("Access denied: This account is registered as '" + (profileDataArray[0].role || 'unknown') + "', not as a student.");
+        await supabase.auth.signOut(); // Log out if not a student
+      } else {
+        // Redirect to chat if role is correct
+        window.location.href = '/chat';
+      }
     } else {
-      alert('Sign-in failed: No session returned. Please check your credentials and Supabase configuration.');
+      setIsLoading(false);
+      setError("Sign-in failed: No session returned. Please check your credentials.");
     }
   };
 
@@ -54,6 +92,12 @@ export default function StudentSignIn() {
             <p className="text-gray-400">Sign in to access your learning resources</p>
             <p className="text-gray-400 text-sm mt-2">Your username and password will be given to you by your teacher or school district.</p>
           </div>
+
+          {error && (
+            <div className="text-center text-red-400 text-sm font-medium bg-red-500/10 border border-red-500/20 rounded-md p-2">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleEmailSignIn} className="mt-8 space-y-4">
             <div>
@@ -82,9 +126,10 @@ export default function StudentSignIn() {
             </div>
             <Button 
               type="submit" 
+              disabled={isLoading}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-md transition-all duration-300 shadow-md"
             >
-              Sign in
+              {isLoading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
         </motion.div>

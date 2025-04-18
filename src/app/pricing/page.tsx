@@ -63,13 +63,16 @@ const PricingCard: React.FC<PricingCardProps> = ({
         {frequency && <span className="text-gray-400 text-xs ml-1">{frequency}</span>}
       </div>
       <ul className="space-y-2 text-gray-300 mb-6 flex-grow">
-        {features.map((feature, i) => (
+        {features.filter(feature => !feature.startsWith("*")).map((feature, i) => (
           <li key={i} className="flex items-start">
             <CheckCircle className="w-4 h-4 text-indigo-400 mr-2 flex-shrink-0 mt-0.5" />
             <span className="text-sm">{feature}</span>
           </li>
         ))}
       </ul>
+      {features.some(feature => feature.startsWith("*")) && (
+        <p className="text-gray-400 text-xs mt-2">{features.find(feature => feature.startsWith("*"))}</p>
+      )}
       {isContact ? (
         <ButtonColorful label={ctaText} className="w-full mt-auto py-3 text-base rounded-full shadow-md shadow-indigo-500/40 hover:shadow-indigo-500/60 transition-all duration-300" onClick={() => window.dispatchEvent(new CustomEvent('openContactModal'))} />
       ) : (
@@ -100,8 +103,9 @@ export default function PricingPage() {
       frequency: "",
       description: "Tailored solutions for educational institutions.",
       features: [
-        "Unlimited access to Socratic Tutor",
+        "Unlimited access to Socratic Tutor*",
         "Admin dashboard & usage insights",
+        "*Rate limits in place to prevent abuse",
         "Integration with LMS (optional)",
         "Bulk licensing options",
         "Dedicated onboarding & support",
@@ -140,7 +144,6 @@ export default function PricingPage() {
           <h1 className="text-3xl md:text-4xl font-bold mb-4 text-white tracking-tight">Flexible Pricing</h1>
           <p className="text-lg text-gray-300 max-w-xl mx-auto">Contact us to work out a plan that fits your needs.</p>
         </motion.div>
-
         <motion.div
           variants={containerVariants}
           initial="hidden"

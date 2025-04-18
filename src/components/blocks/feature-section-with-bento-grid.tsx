@@ -76,19 +76,34 @@ const FeatureCard = ({
 }) => {
   return (
     <motion.div
-      whileHover={{ scale: 1.08, rotate: 1 }}
-      whileTap={{ scale: 0.97 }}
-      transition={{ type: "spring", stiffness: 350, damping: 20 }}
+      initial={{ opacity: 0, y: 40, scale: 0.95 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      whileHover={{ 
+        scale: 1.05, 
+        boxShadow: "0 15px 35px -10px rgba(79, 70, 229, 0.4)"
+      }}
+      whileTap={{ scale: 0.97, y: 3 }}
+      transition={{ 
+        type: "spring", 
+        stiffness: 340, 
+        damping: 22, 
+        delay: 0.05 * (Math.random() * 3), // Refined stagger for entrance
+        duration: 0.5 
+      }}
+      viewport={{ once: true, amount: 0.4 }}
       className={cn(
-        `p-4 sm:p-8 relative overflow-hidden cursor-pointer group transition-all duration-200
-         shadow-md hover:shadow-2xl hover:z-10
-         bg-gradient-to-br from-white/80 via-neutral-100/60 to-indigo-100/40 dark:from-neutral-900 dark:via-neutral-800 dark:to-indigo-900/40
-         rounded-xl border border-transparent hover:border-indigo-400/80`,
+        `p-4 sm:p-8 relative overflow-hidden cursor-pointer group transition-all duration-400 ease-in-out
+         shadow-xl hover:shadow-2xl hover:z-20
+         bg-gradient-to-br from-white/90 via-neutral-100/70 to-indigo-100/50 dark:from-neutral-900 dark:via-neutral-800 dark:to-indigo-900/50
+         rounded-2xl border border-transparent hover:border-indigo-400/80`,
         className
       )}
+      style={{ transformStyle: "flat" }}
     >
       {/* Animated border glow on hover */}
-      <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl border-2 border-indigo-400/60 blur-sm" />
+      <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-600 rounded-2xl border border-indigo-400/60 blur-lg" />
+      {/* Background overlay for dark mode hover effect */}
+      {/* Removed dark mode hover overlay to improve text readability */}
       {children}
     </motion.div>
   );
@@ -120,10 +135,18 @@ const FeatureDescription = ({ children }: { children?: React.ReactNode }) => {
 function AnimatedCardIcon({ children }: { children: React.ReactNode }) {
   return (
     <motion.div
-      whileHover={{ scale: 1.2, rotate: 8 }}
-      whileTap={{ scale: 0.93 }}
-      transition={{ type: "spring", stiffness: 260, damping: 18 }}
-      className="inline-flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 p-2 shadow-md shadow-indigo-500/10 border border-indigo-400/20"
+      initial={{ scale: 0.7, opacity: 0, y: 20 }}
+      whileInView={{ scale: 1, opacity: 1, y: 0 }}
+      whileHover={{ 
+        scale: 1.2, 
+        rotate: 10, 
+        boxShadow: "0 10px 20px rgba(79, 70, 229, 0.5)", 
+        background: "linear-gradient(135deg, #818cf8, #a78bfa, #f472b6)" 
+      }}
+      whileTap={{ scale: 0.85 }}
+      transition={{ type: "spring", stiffness: 360, damping: 20, delay: 0.25 }}
+      viewport={{ once: true }}
+      className="inline-flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 p-2 shadow-xl shadow-indigo-500/30 border border-indigo-400/40"
     >
       {children}
     </motion.div>

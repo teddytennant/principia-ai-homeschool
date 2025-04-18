@@ -20,6 +20,14 @@ export interface Subject {
   isCustom?: boolean;
 }
 
+// Define the types for student-specific settings
+export interface StudentSettings {
+  isAiEnabled: boolean;
+  aiOpenness: number; // 0-100 scale (0: Socratic, 100: Direct)
+  gradeLevel: string;
+  additionalContext: string; // Additional context for the AI for this student
+}
+
 // Define the types for our settings
 export interface TeacherSettings {
   isAiEnabled: boolean;
@@ -28,6 +36,7 @@ export interface TeacherSettings {
   curriculum: CurriculumItem[];
   subjects: Subject[]; // Subjects the teacher teaches
   additionalContext: string; // Additional context for the AI
+  studentSettings: Record<string, StudentSettings>; // Map of student ID/username to their specific settings
 }
 
 // Define the context type
@@ -36,6 +45,8 @@ interface TeacherSettingsContextType {
   updateSettings: (newSettings: Partial<TeacherSettings>) => void;
   addCurriculumItem: (item: CurriculumItem) => void;
   removeCurriculumItem: (id: string) => void;
+  updateStudentSettings: (studentId: string, settings: Partial<StudentSettings>) => void;
+  removeStudentSettings: (studentId: string) => void;
 }
 
 // Create the context with a default value
@@ -62,6 +73,7 @@ const defaultSettings: TeacherSettings = {
   curriculum: [], // Empty curriculum initially
   subjects: [defaultSubjects[0]], // Default to General subject
   additionalContext: '', // No additional context initially
+  studentSettings: {}, // No student-specific settings initially
 };
 
 // Provider component
@@ -123,12 +135,45 @@ export function TeacherSettingsProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+// Update student-specific settings
+const updateStudentSettings = (studentId: string, studentSettings: Partial<StudentSettings>) => {
+  setSettings(prev => ({
+    ...prev,
+    studentSettings: {
+      ...prev.studentSettings,
+      [studentId]: {
+        ...(prev.studentSettings[studentId] || {
+          isAiEnabled: prev.isAiEnabled,
+          aiOpenness: prev.aiOpenness,
+          gradeLevel: prev.gradeLevel,
+          additionalContext: ''
+        }),
+        ...studentSettings
+      }
+    }
+  }));
+};
+
+// Remove student-specific settings
+const removeStudentSettings = (studentId: string) => {
+  setSettings(prev => {
+    const newStudentSettings = { ...prev.studentSettings };
+    delete newStudentSettings[studentId];
+    return {
+      ...prev,
+      studentSettings: newStudentSettings
+    };
+  });
+};
+
   return (
     <TeacherSettingsContext.Provider value={{ 
       settings, 
       updateSettings, 
       addCurriculumItem, 
-      removeCurriculumItem 
+      removeCurriculumItem,
+      updateStudentSettings,
+      removeStudentSettings
     }}>
       {children}
     </TeacherSettingsContext.Provider>

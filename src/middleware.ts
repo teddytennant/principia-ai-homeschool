@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Adjust this if your auth cookie has a different name
 const AUTH_COOKIE_NAME = 'token';
+const SUPABASE_AUTH_COOKIE_PREFIX = 'sb-'; // Supabase auth cookies start with this prefix
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -22,13 +23,28 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for authentication cookie
+  // Check for authentication cookie (either custom token or Supabase auth cookie)
   const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
-  if (!token) {
+  const hasSupabaseAuthCookie = Array.from(req.cookies.getAll()).some(cookie => 
+    cookie.name.startsWith(SUPABASE_AUTH_COOKIE_PREFIX) && cookie.value
+  );
+  
+  if (!token && !hasSupabaseAuthCookie) {
     // Redirect unauthenticated users to the homepage
     const url = req.nextUrl.clone();
     url.pathname = '/';
     return NextResponse.redirect(url);
+  } else if (hasSupabaseAuthCookie) {
+    // Prevent redirecting authenticated users to homepage if coming from sign-in
+    if (pathname === '/' && req.headers.get('referer')?.includes('/signin')) {
+      const url = req.nextUrl.clone();
+      url.pathname = '/teacher/dashboard';
+      return NextResponse.redirect(url);
+    }
+    // Allow access to teacher dashboard for authenticated users
+    if (pathname.startsWith('/teacher/dashboard')) {
+      return NextResponse.next();
+    }
   }
 
   return NextResponse.next();
