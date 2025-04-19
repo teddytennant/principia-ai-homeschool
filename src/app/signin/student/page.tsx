@@ -66,7 +66,8 @@ export default function StudentSignIn() {
         setError("Access denied: This account is registered as '" + (profileDataArray[0].role || 'unknown') + "', not as a student.");
         await supabase.auth.signOut(); // Log out if not a student
       } else {
-        // Redirect to chat if role is correct
+        // Set role cookie for middleware
+        document.cookie = "role=student; path=/; max-age=86400"; // 1 day expiry
         window.location.href = '/chat';
       }
     } else {

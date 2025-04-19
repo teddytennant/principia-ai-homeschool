@@ -30,45 +30,51 @@ export default function TeacherSignIn() {
       password: password,
     });
 
+    console.log("Sign-in attempt with email:", userEmail);
     console.log("Sign-in response:", { error, data });
 
-      if (error) {
-        setIsLoading(false);
-        setError("Wrong password, try again");
-      } else if (data && data.session) {
-        // Check if the user has the 'teacher' role
+    if (error) {
+      console.error("Sign-in error details:", error);
+      setIsLoading(false);
+      setError("Wrong password, try again. Check console for detailed error.");
+    } else if (data && data.session) {
+      // Fetch profile and check role
+      try {
         const { data: profileDataArray, error: profileError } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', data.user.id)
           .limit(1);
 
-        console.log("Profile fetch response:", { profileDataArray, profileError });
-
         if (profileError) {
           setIsLoading(false);
-          setError("Warning: Unable to verify teacher status due to error: " + profileError.message + ". Proceeding to dashboard for debugging.");
-          console.log("Proceeding to dashboard despite profile fetch error for user ID:", data.user.id);
-          // Delay redirect to ensure error message is visible
-          setTimeout(() => {
-            router.push('/teacher/dashboard');
-          }, 2000);
+          setError("Warning: Unable to verify teacher status due to error: " + profileError.message + ".");
+          await supabase.auth.signOut();
         } else if (!profileDataArray || profileDataArray.length === 0) {
           setIsLoading(false);
-          setError("Warning: No profile found for this account. Proceeding to dashboard for debugging.");
-          console.log("No profile found for user ID:", data.user.id, ". Proceeding to dashboard.");
-          // Delay redirect to ensure error message is visible
-          setTimeout(() => {
-            router.push('/teacher/dashboard');
-          }, 2000);
+          setError("No profile found for this account. Please contact support.");
+          await supabase.auth.signOut();
         } else if (profileDataArray[0].role !== 'teacher') {
           setIsLoading(false);
           setError("Access denied: This account is registered as '" + (profileDataArray[0].role || 'unknown') + "', not as a teacher.");
-          await supabase.auth.signOut(); // Log out if not a teacher
+          await supabase.auth.signOut();
         } else {
-          // Redirect to teacher dashboard if role is correct
-          router.push('/teacher/dashboard');
+          // Role is teacher, proceed
+          setTimeout(() => {
+            console.log("Attempting redirect to dashboard...");
+            // Set role cookie for middleware
+        // Set access token cookie for middleware
+        const accessToken = data.session.access_token;
+        document.cookie = `sb-access-token=${accessToken}; path=/; SameSite=Lax; max-age=86400`;
+        document.cookie = "role=teacher; path=/; SameSite=Lax; max-age=86400";
+        window.location.replace('/teacher/dashboard');
+          }, 100);
         }
+      } catch (err) {
+        setIsLoading(false);
+        setError("Unexpected error during role verification. Please try again.");
+        await supabase.auth.signOut();
+      }
     } else {
       setIsLoading(false);
       setError("Sign-in failed: No session returned. Please check your credentials.");
@@ -108,6 +114,7 @@ export default function TeacherSignIn() {
                 required
                 placeholder="Enter your email"
                 className="w-full bg-gray-800 border-gray-700 text-white rounded-md py-3 px-3"
+                autoComplete="username"
               />
             </div>
             <div>
@@ -120,6 +127,7 @@ export default function TeacherSignIn() {
                 required
                 placeholder="Enter your password"
                 className="w-full bg-gray-800 border-gray-700 text-white rounded-md py-3 px-3"
+                autoComplete="current-password"
               />
             </div>
             <Button

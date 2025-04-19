@@ -88,6 +88,18 @@ CREATE TABLE IF NOT EXISTS student_activity (
     teacher_id UUID REFERENCES auth.users(id) ON DELETE SET NULL -- For visibility to specific teacher
 );
 
+-- Student Name Mapping Table: Dedicated table to map student IDs to names
+-- Note: Ensure that the 'profiles' table exists before running this part of the script.
+-- If you encounter errors, you may need to run this table creation separately after ensuring dependencies.
+CREATE TABLE IF NOT EXISTS student_name_mapping (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_id UUID UNIQUE REFERENCES profiles(id) ON DELETE CASCADE,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Settings Table: General table for user-specific settings or preferences
 CREATE TABLE IF NOT EXISTS settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -97,95 +109,171 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 -- Indexes for performance optimization
-CREATE INDEX idx_profiles_role ON profiles(role);
-CREATE INDEX idx_teacher_student_teacher_id ON teacher_student_relationships(teacher_id);
-CREATE INDEX idx_teacher_student_student_id ON teacher_student_relationships(student_id);
-CREATE INDEX idx_chat_history_sender_id ON chat_history(sender_id);
-CREATE INDEX idx_chat_history_receiver_id ON chat_history(receiver_id);
-CREATE INDEX idx_chat_history_session_id ON chat_history(session_id);
-CREATE INDEX idx_student_activity_student_id ON student_activity(student_id);
-CREATE INDEX idx_student_activity_timestamp ON student_activity(timestamp);
-CREATE INDEX idx_curriculum_teacher_id ON curriculum(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+CREATE INDEX IF NOT EXISTS idx_teacher_student_teacher_id ON teacher_student_relationships(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_student_name_mapping_student_id ON student_name_mapping(student_id);
+
+-- Row-Level Security (RLS) Policies for student_name_mapping
+-- Teachers can view mappings of their students, students can view their own mapping
+-- Note: Ensure that 'teacher_student_relationships' table exists before enabling RLS.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'teacher_student_relationships') THEN
+        ALTER TABLE student_name_mapping ENABLE ROW LEVEL SECURITY;
+
+        CREATE POLICY student_name_mapping_student_access_policy ON student_name_mapping
+            FOR SELECT
+            TO authenticated
+            USING (auth.uid() = student_id);
+
+        CREATE POLICY student_name_mapping_teacher_access_policy ON student_name_mapping
+            FOR SELECT
+            TO authenticated
+            USING (
+                EXISTS (
+                    SELECT 1
+                    FROM teacher_student_relationships
+                    WHERE teacher_id = auth.uid()
+                    AND student_id = student_name_mapping.student_id
+                    AND status = 'active'
+                )
+            );
+    END IF;
+END
+$$;
+CREATE INDEX IF NOT EXISTS idx_teacher_student_student_id ON teacher_student_relationships(student_id);
+CREATE INDEX IF NOT EXISTS idx_chat_history_sender_id ON chat_history(sender_id);
+CREATE INDEX IF NOT EXISTS idx_chat_history_receiver_id ON chat_history(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_chat_history_session_id ON chat_history(session_id);
+CREATE INDEX IF NOT EXISTS idx_student_activity_student_id ON student_activity(student_id);
+CREATE INDEX IF NOT EXISTS idx_student_activity_timestamp ON student_activity(timestamp);
+CREATE INDEX IF NOT EXISTS idx_curriculum_teacher_id ON curriculum(teacher_id);
 
 -- Row-Level Security (RLS) Policies
--- Profiles Table: Users can only view and update their own profile
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY profile_access_policy ON profiles
-    FOR ALL
-    TO authenticated
-    USING (auth.uid() = id)
-    WITH CHECK (auth.uid() = id);
+-- Profile Table: Users can only view and update their own profile
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'profile_access_policy' AND tablename = 'profiles') THEN
+        ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY profile_access_policy ON profiles
+            FOR ALL
+            TO authenticated
+            USING (auth.uid() = id)
+            WITH CHECK (auth.uid() = id);
+    END IF;
+END
+$$;
 
 -- Teacher-Student Relationships Table: Access based on relationship
-ALTER TABLE teacher_student_relationships ENABLE ROW LEVEL SECURITY;
-CREATE POLICY teacher_student_relationship_access_policy ON teacher_student_relationships
-    FOR ALL
-    TO authenticated
-    USING (auth.uid() = teacher_id OR auth.uid() = student_id)
-    WITH CHECK (auth.uid() = teacher_id OR auth.uid() = student_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'teacher_student_relationship_access_policy' AND tablename = 'teacher_student_relationships') THEN
+        ALTER TABLE teacher_student_relationships ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY teacher_student_relationship_access_policy ON teacher_student_relationships
+            FOR ALL
+            TO authenticated
+            USING (auth.uid() = teacher_id OR auth.uid() = student_id)
+            WITH CHECK (auth.uid() = teacher_id OR auth.uid() = student_id);
+    END IF;
+END
+$$;
 
 -- Chat Sessions Table: Access based on participation
-ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY chat_sessions_access_policy ON chat_sessions
-    FOR ALL
-    TO authenticated
-    USING (auth.uid() = teacher_id OR auth.uid() = student_id)
-    WITH CHECK (auth.uid() = teacher_id OR auth.uid() = student_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'chat_sessions_access_policy' AND tablename = 'chat_sessions') THEN
+        ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY chat_sessions_access_policy ON chat_sessions
+            FOR ALL
+            TO authenticated
+            USING (auth.uid() = teacher_id OR auth.uid() = student_id)
+            WITH CHECK (auth.uid() = teacher_id OR auth.uid() = student_id);
+    END IF;
+END
+$$;
 
 -- Chat History Table: Access based on participation
-ALTER TABLE chat_history ENABLE ROW LEVEL SECURITY;
-CREATE POLICY chat_history_access_policy ON chat_history
-    FOR ALL
-    TO authenticated
-    USING (auth.uid() = sender_id OR auth.uid() = receiver_id)
-    WITH CHECK (auth.uid() = sender_id OR auth.uid() = receiver_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'chat_history_access_policy' AND tablename = 'chat_history') THEN
+        ALTER TABLE chat_history ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY chat_history_access_policy ON chat_history
+            FOR ALL
+            TO authenticated
+            USING (auth.uid() = sender_id OR auth.uid() = receiver_id)
+            WITH CHECK (auth.uid() = sender_id OR auth.uid() = receiver_id);
+    END IF;
+END
+$$;
 
 -- Curriculum Table: Teachers can manage their own, students can view based on relationship
-ALTER TABLE curriculum ENABLE ROW LEVEL SECURITY;
-CREATE POLICY curriculum_teacher_access_policy ON curriculum
-    FOR ALL
-    TO authenticated
-    USING (auth.uid() = teacher_id)
-    WITH CHECK (auth.uid() = teacher_id);
-CREATE POLICY curriculum_student_access_policy ON curriculum
-    FOR SELECT
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1
-            FROM teacher_student_relationships
-            WHERE teacher_id = curriculum.teacher_id
-            AND student_id = auth.uid()
-            AND status = 'active'
-        )
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'curriculum_teacher_access_policy' AND tablename = 'curriculum') THEN
+        ALTER TABLE curriculum ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY curriculum_teacher_access_policy ON curriculum
+            FOR ALL
+            TO authenticated
+            USING (auth.uid() = teacher_id)
+            WITH CHECK (auth.uid() = teacher_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'curriculum_student_access_policy' AND tablename = 'curriculum') THEN
+        CREATE POLICY curriculum_student_access_policy ON curriculum
+            FOR SELECT
+            TO authenticated
+            USING (
+                EXISTS (
+                    SELECT 1
+                    FROM teacher_student_relationships
+                    WHERE teacher_id = curriculum.teacher_id
+                    AND student_id = auth.uid()
+                    AND status = 'active'
+                )
+            );
+    END IF;
+END
+$$;
 
 -- Student Activity Table: Teachers can view activities of their students, students can view their own
-ALTER TABLE student_activity ENABLE ROW LEVEL SECURITY;
-CREATE POLICY student_activity_student_access_policy ON student_activity
-    FOR SELECT
-    TO authenticated
-    USING (auth.uid() = student_id);
-CREATE POLICY student_activity_teacher_access_policy ON student_activity
-    FOR SELECT
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1
-            FROM teacher_student_relationships
-            WHERE teacher_id = auth.uid()
-            AND student_id = student_activity.student_id
-            AND status = 'active'
-        )
-    );
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'student_activity_student_access_policy' AND tablename = 'student_activity') THEN
+        ALTER TABLE student_activity ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY student_activity_student_access_policy ON student_activity
+            FOR SELECT
+            TO authenticated
+            USING (auth.uid() = student_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'student_activity_teacher_access_policy' AND tablename = 'student_activity') THEN
+        CREATE POLICY student_activity_teacher_access_policy ON student_activity
+            FOR SELECT
+            TO authenticated
+            USING (
+                EXISTS (
+                    SELECT 1
+                    FROM teacher_student_relationships
+                    WHERE teacher_id = auth.uid()
+                    AND student_id = student_activity.student_id
+                    AND status = 'active'
+                )
+            );
+    END IF;
+END
+$$;
 
 -- Settings Table: Users can only view and update their own settings
-ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY settings_access_policy ON settings
-    FOR ALL
-    TO authenticated
-    USING (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'settings_access_policy' AND tablename = 'settings') THEN
+        ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY settings_access_policy ON settings
+            FOR ALL
+            TO authenticated
+            USING (auth.uid() = user_id)
+            WITH CHECK (auth.uid() = user_id);
+    END IF;
+END
+$$;
 
 -- Comments for documentation
 COMMENT ON TABLE profiles IS 'Stores role and metadata for users, linked to Supabase Auth.';

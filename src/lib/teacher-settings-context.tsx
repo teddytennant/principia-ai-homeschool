@@ -9,6 +9,7 @@ export interface CurriculumItem {
   name: string;
   content: string; // This would be the extracted text content from the uploaded file
   type: string;
+  subject?: string; // Optional subject association for curriculum
   size?: number; // Size in bytes (optional)
   uploadedAt: Date;
 }
@@ -35,7 +36,8 @@ export interface TeacherSettings {
   gradeLevel: string;
   curriculum: CurriculumItem[];
   subjects: Subject[]; // Subjects the teacher teaches
-  additionalContext: string; // Additional context for the AI
+  additionalContext: string; // General additional context for the AI
+  subjectContext: Record<string, string>; // Subject-specific additional context
   studentSettings: Record<string, StudentSettings>; // Map of student ID/username to their specific settings
 }
 
@@ -72,7 +74,8 @@ const defaultSettings: TeacherSettings = {
   gradeLevel: '8', // Default to 8th grade
   curriculum: [], // Empty curriculum initially
   subjects: [defaultSubjects[0]], // Default to General subject
-  additionalContext: '', // No additional context initially
+  additionalContext: '', // No general additional context initially
+  subjectContext: {}, // No subject-specific context initially
   studentSettings: {}, // No student-specific settings initially
 };
 

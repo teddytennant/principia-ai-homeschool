@@ -5,8 +5,9 @@ import { cn } from '@/lib/utils';
 import { User, Clock, MessageCircle, FileUp, LogOut, RefreshCw, Settings } from 'lucide-react'; // Icons
 import { useTeacherSettings } from '@/lib/teacher-settings-context';
 import { Switch } from "@/components/ui/switch";
+import { supabase } from '@/lib/supabaseClient';
 
- // Placeholder data structure for student activity
+// Placeholder data structure for student activity
 interface ActivityLog {
     id: string;
     studentName: string;
@@ -16,28 +17,218 @@ interface ActivityLog {
     timestamp: Date;
 }
 
-// Placeholder function to fetch activity data - replace with actual API call
-const fetchStudentActivity = async (): Promise<ActivityLog[]> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+// Placeholder data structure for current students
+interface Student {
+    id: string;
+    name: string;
+    isActive: boolean;
+}
 
-    // Return mock data
-    return [
-        { id: 'act1', studentName: 'Alice Smith', studentId: 's123', activityType: 'chat_started' as const, details: 'Topic: Photosynthesis', timestamp: new Date(Date.now() - 5 * 60 * 1000) },
-        { id: 'act2', studentName: 'Bob Johnson', studentId: 's456', activityType: 'chat_started' as const, details: 'Topic: World War II Causes', timestamp: new Date(Date.now() - 10 * 60 * 1000) },
-        { id: 'act3', studentName: 'Alice Smith', studentId: 's123', activityType: 'message_sent' as const, details: 'What are chloroplasts?', timestamp: new Date(Date.now() - 3 * 60 * 1000) },
-        { id: 'act4', studentName: 'Charlie Brown', studentId: 's789', activityType: 'file_uploaded' as const, details: 'History Essay Draft.docx', timestamp: new Date(Date.now() - 15 * 60 * 1000) },
-        { id: 'act5', studentName: 'Bob Johnson', studentId: 's456', activityType: 'message_sent' as const, details: 'What was the Treaty of Versailles?', timestamp: new Date(Date.now() - 2 * 60 * 1000) },
-        { id: 'act6', studentName: 'Alice Smith', studentId: 's123', activityType: 'session_ended' as const, details: 'Duration: 15 mins', timestamp: new Date(Date.now() - 1 * 60 * 1000) },
-    ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Sort newest first
+// Function to fetch student activity data from Supabase
+const fetchStudentActivity = async (): Promise<ActivityLog[]> => {
+    try {
+        console.log("Starting fetchStudentActivity...");
+        // Fetch current students to map IDs to names
+        const students = await fetchCurrentStudents();
+        console.log("Fetched students:", students.length);
+        
+        if (students.length === 0) {
+            console.log("No students found, skipping activity fetch.");
+            return [];
+        }
+
+        const studentIds = students.map(student => student.id);
+
+        // Fetch activity logs for all students associated with the teacher
+        let activityData = null;
+        let activityError = null;
+        if (studentIds.length > 0) {
+            try {
+                const result = await supabase
+                    .from('student_activity')
+                    .select('id, student_id, activity_type')
+                    .in('student_id', studentIds)
+                    .limit(50); // Limit to the most recent 50 activities
+                
+                activityData = result.data;
+                activityError = result.error;
+            } catch (err) {
+                console.error("Exception caught while fetching student activity from Supabase:", err);
+                activityError = { 
+                    message: err instanceof Error ? err.message : "Unknown error", 
+                    details: "Exception in query execution", 
+                    hint: "Check error details" 
+                };
+            }
+
+            if (activityError) {
+                console.error("Error fetching student activity from Supabase:", activityError.message, "Details:", activityError.details || "Not available", "Hint:", activityError.hint || "Not available");
+                console.log("Returning empty array due to error in fetching activity data. This may be due to missing table or permissions.");
+                return [];
+            }
+        } else {
+            console.log("No student IDs available, skipping activity fetch.");
+            return [];
+        }
+
+        if (!activityData || activityData.length === 0) {
+            console.log("No activity data found for students.");
+            return [];
+        }
+
+        console.log("Fetched activity data:", activityData);
+
+        // Map the activity data to the ActivityLog interface
+            const activityLogs: ActivityLog[] = activityData.map((activity: any) => {
+            const student = students.find(s => s.id === activity.student_id);
+            return {
+                id: activity.id,
+                studentName: student ? student.name : `Student ID: ${activity.student_id.substring(0, 8)}...`,
+                studentId: activity.student_id,
+                activityType: activity.activity_type as 'chat_started' | 'message_sent' | 'file_uploaded' | 'session_ended',
+                details: 'Details not available',
+                timestamp: new Date() // Fallback to current date since created_at is not available
+            };
+        });
+
+        return activityLogs;
+    } catch (err) {
+        console.error("Unexpected error fetching student activity:", err);
+        console.log("Returning empty array due to unexpected error in fetching activity data. Check Supabase setup and permissions.");
+        return [];
+    }
+};
+
+// Function to fetch current students from Supabase based on teacher-student relationships
+const fetchCurrentStudents = async (): Promise<Student[]> => {
+    try {
+        console.log("Starting fetchCurrentStudents...");
+        // Fetch the current authenticated user's ID (teacher)
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+            console.error("Error fetching current user:", userError);
+            return [];
+        }
+        
+        if (!user) {
+            console.error("No authenticated user found.");
+            return [];
+        }
+        
+        console.log("Fetching students for teacher ID:", user.id, "Email:", user.email);
+        
+        // Fetch students related to the current teacher from teacher_student_relationships with a timeout
+        const fetchPromise = supabase
+            .from('teacher_student_relationships')
+            .select('student_id, status')
+            .eq('teacher_id', user.id);
+
+        // Set a timeout of 10 seconds for the fetch operation
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Fetch operation timed out')), 10000);
+        });
+
+        let relData: Array<{ student_id: string; status: string }> | null = null;
+        let relError: any = null;
+        try {
+            console.log("Attempting to fetch teacher-student relationships...");
+            const result = await Promise.race([fetchPromise, timeoutPromise]) as { data: Array<{ student_id: string; status: string }> | null; error: any };
+            relData = result.data;
+            relError = result.error;
+            console.log("Fetch result received:", { data: relData ? relData.length : null, error: relError });
+        } catch (err) {
+            console.error("Timeout or error fetching teacher-student relationships:", err instanceof Error ? err.message : 'Unknown error');
+            relError = err;
+            relData = null;
+        }
+
+        if (relError) {
+            console.error("Error fetching teacher-student relationships from Supabase:", relError.message || "Timeout error");
+            // Store error message to display in UI via state update (will be handled in component)
+            return [];
+        }
+
+        console.log("Fetched teacher-student relationships:", relData, "Total count:", relData?.length || 0);
+
+        if (relData && relData.length > 0) {
+            // Map the fetched data to the Student interface
+            // Fetch all student profiles in a single batch query to optimize
+            const studentIds = relData.map(rel => rel.student_id);
+            const { data: profilesData, error: profilesError } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, role')
+                .in('id', studentIds);
+
+            if (profilesError) {
+                console.error("Error fetching student profiles:", profilesError.message, "Details:", profilesError.details, "Hint:", profilesError.hint);
+                // Fall back to displaying student IDs with a clear indication
+                return relData.map((rel: { student_id: string; status: string }) => ({
+                    id: rel.student_id,
+                    name: `Student ID: ${rel.student_id.substring(0, 8)}... (Profile Not Found)`,
+                    isActive: rel.status === 'active'
+                }));
+            }
+
+            console.log("Fetched student profiles:", profilesData, "Total profiles fetched:", profilesData?.length || 0);
+
+            // Fetch from student_name_mapping as a fallback
+            const { data: mappingData, error: mappingError } = await supabase
+                .from('student_name_mapping')
+                .select('student_id, first_name, last_name')
+                .in('student_id', studentIds);
+
+            if (mappingError) {
+                console.error("Error fetching student name mappings:", mappingError.message, "Details:", mappingError.details, "Hint:", mappingError.hint);
+            } else {
+                console.log("Fetched student name mappings:", mappingData, "Total mappings fetched:", mappingData?.length || 0);
+            }
+
+            const students: Student[] = relData.map((rel: { student_id: string; status: string }) => {
+                const profile = profilesData.find((p: { id: string }) => p.id === rel.student_id);
+                if (profile) {
+                    return {
+                        id: rel.student_id,
+                        name: `${profile.first_name || 'Unknown'} ${profile.last_name || ''}`.trim(),
+                        isActive: rel.status === 'active'
+                    };
+                } else if (mappingData) {
+                    const mapping = mappingData.find((m: { student_id: string }) => m.student_id === rel.student_id);
+                    if (mapping) {
+                        return {
+                            id: rel.student_id,
+                            name: `${mapping.first_name || 'Unknown'} ${mapping.last_name || ''}`.trim(),
+                            isActive: rel.status === 'active'
+                        };
+                    }
+                }
+                console.log(`No profile or mapping found for student ${rel.student_id}`);
+                return {
+                    id: rel.student_id,
+                    name: `Student ID: ${rel.student_id.substring(0, 8)}... (Profile Not Found)`,
+                    isActive: rel.status === 'active'
+                };
+            });
+            return students;
+        }
+
+        console.log("No student relationships found for this teacher in the database.");
+        return [];
+    } catch (err) {
+        console.error("Unexpected error fetching students:", err);
+        return [];
+    }
 };
 
 const StudentActivityMonitor = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
     ({ className, ...props }, ref) => {
         const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+        const [currentStudents, setCurrentStudents] = useState<Student[]>([]);
         const [isLoading, setIsLoading] = useState(true);
         const [error, setError] = useState<string | null>(null);
+        const [fetchStatus, setFetchStatus] = useState<string | null>(null);
         const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+        const [activeFilter, setActiveFilter] = useState<string>('all');
         const { settings, updateStudentSettings } = useTeacherSettings();
 
         // Get unique students from activity logs for selection
@@ -45,15 +236,22 @@ const StudentActivityMonitor = React.forwardRef<HTMLDivElement, React.HTMLAttrib
 
         useEffect(() => {
             setIsLoading(true);
-            fetchStudentActivity()
-                .then(data => {
-                    setActivityLogs(data);
+            setFetchStatus(null); // Reset fetch status
+            Promise.all([fetchStudentActivity(), fetchCurrentStudents()])
+                .then(([activityData, studentData]) => {
+                    setActivityLogs(activityData);
+                    setCurrentStudents(studentData);
                     setError(null);
+                    if (studentData.length === 0) {
+                        setFetchStatus("No student relationships found for this teacher in the database.");
+                    }
                 })
                 .catch(err => {
-                    console.error("Error fetching student activity:", err);
-                    setError("Failed to load student activity.");
+                    console.error("Error fetching data:", err);
+                    setError("Failed to load student data. This may be due to database access issues.");
+                    setFetchStatus("Error fetching student data: " + (err.message || "Unknown error") + ". Check Supabase setup.");
                     setActivityLogs([]); // Clear logs on error
+                    setCurrentStudents([]); // Clear students on error
                 })
                 .finally(() => {
                     setIsLoading(false);
@@ -126,17 +324,29 @@ const StudentActivityMonitor = React.forwardRef<HTMLDivElement, React.HTMLAttrib
 
                 {/* Filter options */}
                 <div className="flex flex-wrap gap-2">
-                    <button className="px-3 py-1.5 text-xs bg-indigo-600/20 border border-indigo-500 text-indigo-300 rounded-md">
+                    <button 
+                        className={`px-3 py-1.5 text-xs rounded-md ${activeFilter === 'all' ? 'bg-indigo-600/20 border border-indigo-500 text-indigo-300' : 'bg-gray-800/30 border border-gray-700 text-gray-400 hover:bg-gray-700/30 hover:border-gray-600'}`}
+                        onClick={() => setActiveFilter('all')}
+                    >
                         All Activities
                     </button>
-                    <button className="px-3 py-1.5 text-xs bg-gray-800/30 border border-gray-700 text-gray-400 hover:bg-gray-700/30 hover:border-gray-600 rounded-md transition-colors">
+                    <button 
+                        className={`px-3 py-1.5 text-xs rounded-md ${activeFilter === 'chat_sessions' ? 'bg-indigo-600/20 border border-indigo-500 text-indigo-300' : 'bg-gray-800/30 border border-gray-700 text-gray-400 hover:bg-gray-700/30 hover:border-gray-600'}`}
+                        onClick={() => setActiveFilter('chat_sessions')}
+                    >
                         Chat Sessions
                     </button>
-                    <button className="px-3 py-1.5 text-xs bg-gray-800/30 border border-gray-700 text-gray-400 hover:bg-gray-700/30 hover:border-gray-600 rounded-md transition-colors">
+                    <button 
+                        className={`px-3 py-1.5 text-xs rounded-md ${activeFilter === 'messages' ? 'bg-indigo-600/20 border border-indigo-500 text-indigo-300' : 'bg-gray-800/30 border border-gray-700 text-gray-400 hover:bg-gray-700/30 hover:border-gray-600'}`}
+                        onClick={() => setActiveFilter('messages')}
+                    >
                         Messages
                     </button>
-                    <button className="px-3 py-1.5 text-xs bg-gray-800/30 border border-gray-700 text-gray-400 hover:bg-gray-700/30 hover:border-gray-600 rounded-md transition-colors">
-                        File Uploads
+                    <button 
+                        className={`px-3 py-1.5 text-xs rounded-md ${activeFilter === 'current_students' ? 'bg-indigo-600/20 border border-indigo-500 text-indigo-300' : 'bg-gray-800/30 border border-gray-700 text-gray-400 hover:bg-gray-700/30 hover:border-gray-600'}`}
+                        onClick={() => setActiveFilter('current_students')}
+                    >
+                        Current Students
                     </button>
                 </div>
 
@@ -145,59 +355,150 @@ const StudentActivityMonitor = React.forwardRef<HTMLDivElement, React.HTMLAttrib
                         <div className="flex items-center justify-center py-8">
                             <div className="flex flex-col items-center">
                                 <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-indigo-500"></div>
-                                <p className="text-gray-400 mt-3">Loading activity...</p>
+                                <p className="text-gray-400 mt-3">Loading data...</p>
                             </div>
                         </div>
                     )}
                     {error && (
                         <div className="flex items-center justify-center py-8">
                             <div className="text-red-500 bg-red-500/10 border border-red-500/20 rounded-md px-4 py-3">
-                                <p className="font-medium">Error loading activity</p>
+                                <p className="font-medium">Error loading data</p>
                                 <p className="text-sm mt-1">{error}</p>
                             </div>
                         </div>
                     )}
-                    {!isLoading && !error && activityLogs.length === 0 && (
-                        <div className="flex items-center justify-center py-8">
-                            <div className="text-center">
-                                <p className="text-gray-500">No recent student activity</p>
-                                <p className="text-xs text-gray-500 mt-1">Activity will appear here when students interact with the AI</p>
+                    {!isLoading && !error && fetchStatus && (
+                        <div className="flex items-center justify-center py-4">
+                            <div className="text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 rounded-md px-4 py-3">
+                                <p className="font-medium">Fetch Status</p>
+                                <p className="text-sm mt-1">{fetchStatus}</p>
                             </div>
                         </div>
                     )}
-                    {!isLoading && !error && activityLogs.map(log => (
-                        <div key={log.id} className={`p-3.5 rounded-md shadow-sm transition-colors ${selectedStudentId === log.studentId ? 'bg-indigo-700/80' : 'bg-gray-700/60 hover:bg-gray-700/80'}`} onClick={() => setSelectedStudentId(log.studentId)}>
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="flex items-center text-sm font-medium text-gray-200">
-                                    <User className="h-4 w-4 mr-2 text-gray-400" />
-                                    {log.studentName}
-                                </span>
-                                <span className="flex items-center text-xs text-gray-400 bg-gray-800/50 px-2 py-1 rounded-full">
-                                    <Clock className="h-3 w-3 mr-1.5" />
-                                    {formatTimestamp(log.timestamp)}
-                                </span>
-                            </div>
-                            <div className="flex items-start pl-6">
-                                {log.activityType === 'chat_started' && <MessageCircle className="h-4 w-4 mr-2 text-green-500 mt-0.5" />}
-                                {log.activityType === 'message_sent' && <MessageCircle className="h-4 w-4 mr-2 text-blue-500 mt-0.5" />}
-                                {log.activityType === 'file_uploaded' && <FileUp className="h-4 w-4 mr-2 text-yellow-500 mt-0.5" />}
-                                {log.activityType === 'session_ended' && <LogOut className="h-4 w-4 mr-2 text-gray-500 mt-0.5" />}
-                                <div>
-                                    <p className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-0.5">
-                                        {log.activityType.replace('_', ' ')}
-                                    </p>
-                                    <p className="text-sm text-gray-300" title={log.details}>
-                                        {log.details}
-                                    </p>
+                    {!isLoading && !error && (
+                        <div className="space-y-2">
+                            <h4 className="text-md font-semibold text-gray-200">Recent Activity</h4>
+                            {activeFilter === 'current_students' || activeFilter === 'all' ? (
+                                <div className="mb-4">
+                                    <h5 className="text-sm font-medium text-gray-300 mb-2">Current Students</h5>
+                                    {currentStudents.length === 0 ? (
+                                        <div className="text-center py-2">
+                                            <p className="text-gray-500">No students found</p>
+                                            <p className="text-xs text-gray-500 mt-1">No student relationships are recorded for your account. Students will appear here once they are connected to you.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                            {currentStudents.map(student => (
+                                                <div key={student.id} className={`p-2 rounded-md shadow-sm transition-colors ${selectedStudentId === student.id ? 'bg-indigo-700/80' : 'bg-gray-700/60 hover:bg-gray-700/80'}`} onClick={() => setSelectedStudentId(student.id)}>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="flex items-center text-sm font-medium text-gray-200">
+                                                            <User className="h-4 w-4 mr-2 text-gray-400" />
+                                                            {student.name}
+                                                        </span>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${student.isActive ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
+                                                                {student.isActive ? 'Active' : 'Pending'}
+                                                            </span>
+                                                            {!student.isActive && (
+                                                                <button
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        const { error } = await supabase
+                                                                            .from('teacher_student_relationships')
+                                                                            .update({ status: 'active' })
+                                                                            .eq('teacher_id', (await supabase.auth.getUser()).data.user?.id)
+                                                                            .eq('student_id', student.id);
+                                                                        if (error) {
+                                                                            console.error("Error activating student relationship:", error);
+                                                                            alert("Failed to activate student relationship.");
+                                                                        } else {
+                                                                            setCurrentStudents(currentStudents.map(s => 
+                                                                                s.id === student.id ? { ...s, isActive: true } : s
+                                                                            ));
+                                                                            alert("Student relationship activated.");
+                                                                        }
+                                                                    }}
+                                                                    className="text-xs px-2 py-0.5 rounded-md transition-colors bg-blue-600/20 text-blue-300 hover:bg-blue-600/30"
+                                                                >
+                                                                    Activate
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    console.log("Toggling AI for student:", student.id);
+                                                                    updateStudentSettings(student.id, { isAiEnabled: !(settings.studentSettings[student.id]?.isAiEnabled ?? settings.isAiEnabled) });
+                                                                    console.log("Updated settings:", settings);
+                                                                    // Note: This action only toggles AI access and does not affect the teacher-student relationship status.
+                                                                }}
+                                                                className={`text-xs px-2 py-0.5 rounded-md transition-colors ${settings.studentSettings[student.id]?.isAiEnabled ?? settings.isAiEnabled ? 'bg-red-600/20 text-red-300 hover:bg-red-600/30' : 'bg-green-600/20 text-green-300 hover:bg-green-600/30'}`}
+                                                            >
+                                                                {settings.studentSettings[student.id]?.isAiEnabled ?? settings.isAiEnabled ? 'Pause' : 'Resume'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                            <div className="mt-2 pl-12">
-                                <button className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
-                                    View Details
+                            ) : null}
+                            {activeFilter !== 'current_students' ? (
+                                activityLogs.length === 0 ? (
+                                    <div className="text-center py-4">
+                                        <p className="text-gray-500">No recent student activity</p>
+                                        <p className="text-xs text-gray-500 mt-1">Activity will appear here when students interact with the AI</p>
+                                    </div>
+                                ) : (
+                                    activityLogs
+                                        .filter(log => {
+                                            if (activeFilter === 'all') return true;
+                                            if (activeFilter === 'chat_sessions') return log.activityType === 'chat_started';
+                                            if (activeFilter === 'messages') return log.activityType === 'message_sent';
+                                            return true;
+                                        })
+                                        .map(log => (
+                                            <div key={log.id} className={`p-3.5 rounded-md shadow-sm transition-colors ${selectedStudentId === log.studentId ? 'bg-indigo-700/80' : 'bg-gray-700/60 hover:bg-gray-700/80'}`} onClick={() => setSelectedStudentId(log.studentId)}>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="flex items-center text-sm font-medium text-gray-200">
+                                                        <User className="h-4 w-4 mr-2 text-gray-400" />
+                                                        {log.studentName}
+                                                    </span>
+                                                    <span className="flex items-center text-xs text-gray-400 bg-gray-800/50 px-2 py-1 rounded-full">
+                                                        <Clock className="h-3 w-3 mr-1.5" />
+                                                        {formatTimestamp(log.timestamp)}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-start pl-6">
+                                                    {log.activityType === 'chat_started' && <MessageCircle className="h-4 w-4 mr-2 text-green-500 mt-0.5" />}
+                                                    {log.activityType === 'message_sent' && <MessageCircle className="h-4 w-4 mr-2 text-blue-500 mt-0.5" />}
+                                                    {log.activityType === 'file_uploaded' && <FileUp className="h-4 w-4 mr-2 text-yellow-500 mt-0.5" />}
+                                                    {log.activityType === 'session_ended' && <LogOut className="h-4 w-4 mr-2 text-gray-500 mt-0.5" />}
+                                                    <div>
+                                                        <p className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-0.5">
+                                                            {log.activityType.replace('_', ' ')}
+                                                        </p>
+                                                        <p className="text-sm text-gray-300" title={log.details}>
+                                                            {log.details}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-2 pl-12">
+                                                    <button className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                                                        View Details
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                )
+                            ) : null}
+                            <div className="mt-3 text-center">
+                                <button className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
+                                    See All Student Activity
                                 </button>
                             </div>
                         </div>
-                    ))}
+                    )}
                 </div>
                 
                 {selectedStudentId && (

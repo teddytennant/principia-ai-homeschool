@@ -170,8 +170,14 @@ const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderPr
                 {uploadingFiles.length > 0 && (
                     <div className="space-y-3 pt-6 border-t border-gray-700 mt-6">
                         <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-medium text-gray-300">Processing Files</h4>
-                            <span className="text-xs text-blue-400 animate-pulse">Extracting content...</span>
+                            <h4 className="text-sm font-medium text-gray-300">Uploading Your Curriculum</h4>
+                            <span className="text-xs text-blue-400 animate-pulse">Sending to AI for summarization...</span>
+                        </div>
+                        <div className="w-full bg-gray-700/50 rounded-full h-2.5 mb-4">
+                            <div 
+                                className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300 ease-out" 
+                                style={{ width: '30%' }}
+                            ></div>
                         </div>
                         <ul className="max-h-48 overflow-y-auto space-y-1 pr-2">
                             {uploadingFiles.map((file) => (
@@ -186,7 +192,7 @@ const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderPr
                                             {file.size ? `(${formatBytes(file.size)})` : ''}
                                         </span>
                                     </div>
-                                    <div className="flex-shrink-0 text-xs text-blue-400">Processing...</div>
+                                    <div className="flex-shrink-0 text-xs text-blue-400">Uploading...</div>
                                 </li>
                             ))}
                         </ul>
