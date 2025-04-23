@@ -360,7 +360,7 @@ export default function Home() {
                     className="inline-block relative overflow-hidden"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-500 opacity-0 hover:opacity-30 transition-opacity duration-300 rounded-full"></div>
-                    <a href="/pricing" className="inline-flex items-center px-8 py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-full shadow-xl shadow-indigo-500/40 transition-all duration-300 relative z-10">
+                    <a href="/pricing" className="inline-flex items-center px-10 py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-full shadow-xl shadow-indigo-500/40 transition-all duration-300 relative z-10">
                       Start Your Journey
                     </a>
                   </motion.div>

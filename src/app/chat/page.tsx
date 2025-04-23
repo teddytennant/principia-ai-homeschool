@@ -296,6 +296,11 @@ function ChatPage() {
         }
       }
       setIsLoading(false);
+      // Persist assistant response to database
+      const { error: insertAssistantError } = await supabase
+        .from('chat_messages')
+        .insert([{ chat_id: returnedChatId, role: assistantMessage.role, content: assistantMessage.content, created_at: new Date().toISOString(), student_id: studentId, subject: selectedSubject }]);
+      if (insertAssistantError) console.error('Failed to save assistant message:', insertAssistantError.message);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
       setError(`${errorMessage}`);
