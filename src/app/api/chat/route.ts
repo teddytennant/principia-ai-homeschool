@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { supabase } from '@/lib/supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
 
 // Placeholder values - ideally load from env vars
 
@@ -279,7 +280,7 @@ const checkAndUpdateTokenUsage = async (inputText: string, outputText: string): 
 export async function POST(req: NextRequest) {
   // Move API Key check inside the function
   if (!process.env.OPENROUTER_API_KEY) {
-    console.error('ERROR: Missing environment variable OPENROUTER_API_KEY');
+    console.error('ERROR: Missing critical environment configuration for AI service');
     // Return a generic error response to avoid exposing server configuration details
     return NextResponse.json({ error: 'Server error occurred. Please try again later.' }, { status: 500 });
   }
@@ -383,8 +384,7 @@ export async function POST(req: NextRequest) {
     const assistantResponse = completion.choices[0]?.message?.content;
 
     if (!assistantResponse) {
-      // Avoid logging full completion object to prevent potential exposure of sensitive data
-      console.error('OpenRouter Error: No response content received.');
+      console.error('AI Service Error: No response content received from service.');
       return NextResponse.json({ error: 'Server error occurred. Please try again later.' }, { status: 500 });
     }
 
@@ -394,8 +394,61 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: tokenCheck.message || 'Token limit exceeded for this student.' }, { status: 402 });
     }
 
-    console.log("Sending response back to client.");
-    return NextResponse.json({ message: assistantResponse });
+    // Save chat messages to Supabase
+    const studentId = await getStudentId();
+    const chatId = req.headers.get('X-Chat-ID') || uuidv4(); // Use a chat ID from header if provided, else generate new
+    const userMessage = { role: "user", content: message };
+    const aiMessage = { role: "assistant", content: assistantResponse };
+
+    try {
+      const { error: userMsgError } = await supabase.from('chat_messages').insert({
+        chat_id: chatId,
+        student_id: studentId,
+        role: userMessage.role,
+        content: userMessage.content,
+        subject: subject,
+      });
+      if (userMsgError) {
+        console.error('Error saving user message to Supabase:', userMsgError.message);
+      }
+
+      const { error: aiMsgError } = await supabase.from('chat_messages').insert({
+        chat_id: chatId,
+        student_id: studentId,
+        role: aiMessage.role,
+        content: aiMessage.content,
+        subject: subject,
+      });
+      if (aiMsgError) {
+        console.error('Error saving AI message to Supabase:', aiMsgError.message);
+      }
+
+      // Save chat metadata if it's a new chat
+      if (req.headers.get('X-Chat-ID') === null) {
+        const { error: chatError } = await supabase.from('chats').insert({
+          id: chatId,
+          student_id: studentId,
+          title: message.length > 30 ? message.substring(0, 27) + '...' : message,
+          subject: subject,
+          last_updated: new Date().toISOString(),
+        });
+        if (chatError) {
+          console.error('Error saving chat metadata to Supabase:', chatError.message);
+        }
+      } else {
+        const { error: chatError } = await supabase.from('chats').update({
+          last_updated: new Date().toISOString(),
+        }).eq('id', chatId);
+        if (chatError) {
+          console.error('Error updating chat metadata in Supabase:', chatError.message);
+        }
+      }
+    } catch (err) {
+      console.error('Error saving chat data to Supabase:', err);
+    }
+
+    console.log("Sending response back to client with chat ID:", chatId);
+    return NextResponse.json({ message: assistantResponse, chatId: chatId });
 
   } catch (error) {
     // Log the specific error object
@@ -404,7 +457,7 @@ export async function POST(req: NextRequest) {
     let statusCode = 500;
 
     if (error instanceof OpenAI.APIError) {
-      console.error('OpenAI API Error Details:', { status: error.status, code: error.code, type: error.type });
+      console.error('AI Service API Error: Status', error.status || 'unknown', 'occurred');
       errorMessage = 'AI service error. Please try again later.';
       statusCode = error.status ?? 500;
     } else if (error instanceof Error) {

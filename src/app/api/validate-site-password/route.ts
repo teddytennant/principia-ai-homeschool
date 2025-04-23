@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
         maxAge: 60 * 60 * 24 * 365, // 1 year expiration
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
+        httpOnly: true, // Protect against XSS attacks
       });
       return response;
     } else {

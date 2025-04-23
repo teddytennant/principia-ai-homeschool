@@ -505,7 +505,7 @@ const StudentActivityMonitor = React.forwardRef<HTMLDivElement, React.HTMLAttrib
                             ) : null}
                             <div className="mt-3 text-center">
                                 <button className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
-                                    See All Student Activity
+                                     
                                 </button>
                             </div>
                         </div>

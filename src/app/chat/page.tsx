@@ -10,6 +10,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
+import { supabase } from "@/lib/supabaseClient";
 
 // Define message type
 interface Message {
@@ -47,23 +48,11 @@ function ChatPage() {
   const [selectedSubject, setSelectedSubject] = useState<string>(subjects[0].value);
 
   // State for chat history and current chat ID
-  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([
-    { id: 'chat-1', title: 'Discussion about React Hooks' },
-    { id: 'chat-2', title: 'Python list comprehensions' },
-  ]);
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
 
   // State to store messages for all chats
-  const [allChatMessages, setAllChatMessages] = useState<ChatMessagesStore>({
-    'chat-1': [
-      { role: 'user', content: 'Tell me about React Hooks.' },
-      { role: 'assistant', content: 'React Hooks let you use state and other React features without writing a class. `useState` and `useEffect` are common ones.' }
-    ],
-    'chat-2': [
-      { role: 'user', content: 'Show me a Python list comprehension.' },
-      { role: 'assistant', content: 'Sure! `squares = [x*x for x in range(10)]` creates a list of the first 10 square numbers.' }
-    ],
-  });
+  const [allChatMessages, setAllChatMessages] = useState<ChatMessagesStore>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +66,82 @@ function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Fetch chat history from Supabase on component mount with retry mechanism
+  useEffect(() => {
+    let retryCount = 0;
+    const maxRetries = 3;
+    const fetchChatHistory = async () => {
+      try {
+        // First, get the current user's ID if available
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) {
+          console.error('User not authenticated or error fetching user:', userError?.message);
+          return;
+        }
+        const studentId = user.id;
+        console.log('Using student ID for chat history:', studentId);
+
+        // Fetch chats, filtering by student ID
+        const { data: chatsData, error: chatsError } = await supabase
+          .from('chats')
+          .select('id, title')
+          .eq('student_id', studentId)
+          .order('last_updated', { ascending: false });
+
+        if (chatsError) {
+          console.error('Error fetching chat history from Supabase:', chatsError.message);
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`Retrying fetch chat history (${retryCount}/${maxRetries})...`);
+            setTimeout(fetchChatHistory, 2000 * retryCount); // Exponential backoff
+          } else {
+            console.error('Max retries reached for fetching chat history.');
+          }
+          return;
+        }
+
+        console.log('Fetched chat history:', chatsData);
+        if (chatsData && chatsData.length > 0) {
+          const mappedHistory = chatsData.map(chat => ({ id: chat.id, title: chat.title }));
+          setChatHistory(mappedHistory);
+          console.log('Setting chatHistory state:', mappedHistory);
+
+          // Load messages for each chat
+          const messagesStore: ChatMessagesStore = {};
+          for (const chat of chatsData) {
+            const { data: messagesData, error: messagesError } = await supabase
+              .from('chat_messages')
+              .select('role, content')
+              .eq('chat_id', chat.id)
+              .order('created_at', { ascending: true });
+
+            if (messagesError) {
+              console.error(`Error fetching messages for chat ${chat.id}:`, messagesError.message);
+            } else if (messagesData) {
+              messagesStore[chat.id] = messagesData.map(msg => ({ role: msg.role as "user" | "assistant", content: msg.content }));
+              console.log(`Loaded ${messagesData.length} messages for chat ${chat.id}`, messagesData);
+            }
+          }
+          setAllChatMessages(messagesStore);
+          console.log('Setting allChatMessages state:', messagesStore);
+        } else {
+          console.log('No chats found for this user.');
+        }
+      } catch (err) {
+        console.error('Error fetching chat data from Supabase:', err);
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Retrying fetch chat history (${retryCount}/${maxRetries})...`);
+          setTimeout(fetchChatHistory, 2000 * retryCount); // Exponential backoff
+        } else {
+          console.error('Max retries reached for fetching chat history.');
+        }
+      }
+    };
+
+    fetchChatHistory();
+  }, []);
 
   // Function to start a new chat (clears current messages and selection)
   const handleNewChat = () => {
@@ -108,7 +173,14 @@ function ChatPage() {
     if (e) e.preventDefault();
     if (!input.trim() || isLoading) return;
     const currentInput = input.trim();
-    
+    // Always get the studentId before inserts
+    const { data: userData } = await supabase.auth.getUser();
+    const studentId = userData?.user?.id;
+    if (!studentId) {
+      setError("User is not authenticated or studentId is missing.");
+      setIsLoading(false);
+      return;
+    }
     const userMessage: Message = { role: "user", content: currentInput };
     const chatIdToUpdate = currentChatId ?? uuidv4();
     // If it's a new chat, add to chat history and set current chat ID
@@ -123,22 +195,65 @@ function ChatPage() {
         [chatIdToUpdate]: [userMessage],
       }));
       setCurrentChatId(chatIdToUpdate);
-    } else {
-      setAllChatMessages(prev => ({
-        ...prev,
-        [chatIdToUpdate]: [...(prev[chatIdToUpdate] || []), userMessage],
-      }));
+      // Insert new chat into Supabase
+      const { error: insertChatError } = await supabase
+        .from('chats')
+        .insert([{ id: chatIdToUpdate, title: newChatTitle, student_id: studentId, subject: selectedSubject, last_updated: new Date().toISOString() }]);
+      if (insertChatError) {
+        setError('Failed to create chat: ' + insertChatError.message);
+        setIsLoading(false);
+        return;
+      }
+
+    setAllChatMessages(prev => ({
+      ...prev,
+      [chatIdToUpdate]: [...(prev[chatIdToUpdate] || []), userMessage],
+    }));
     }
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setError(null);
-    
+    // Insert new message into Supabase
+    try {
+      setIsLoading(true);
+      console.log("Inserting message with studentId:", studentId, {
+        chat_id: chatIdToUpdate,
+        role: userMessage.role,
+        content: userMessage.content,
+        created_at: new Date().toISOString(),
+        student_id: studentId,
+        subject: selectedSubject
+      });
+      const { error: insertMsgError } = await supabase
+        .from('chat_messages')
+        .insert([{ chat_id: chatIdToUpdate, role: userMessage.role, content: userMessage.content, created_at: new Date().toISOString(), student_id: studentId, subject: selectedSubject }]);
+      if (insertMsgError) {
+        setError('Failed to send message: ' + insertMsgError.message);
+      }
+      // Log activity for teacher dashboard
+      await supabase.from('student_activity').insert([{
+        student_id: studentId,
+        activity_type: 'message_sent',
+        details: userMessage.content.substring(0, 100),
+        created_at: new Date().toISOString()
+      }]);
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
+      setError(`${errorMessage}`);
+      setMessages(prev => prev.slice(0, -1));
+      setInput(currentInput);
+      requestAnimationFrame(() => adjustHeight());
+    } finally {
+      setIsLoading(false);
+    }
     try {
       setIsLoading(true);
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Chat-ID': chatIdToUpdate,
         },
         body: JSON.stringify({
           message: userMessage.content,
@@ -153,18 +268,32 @@ function ChatPage() {
 
       const data = await response.json();
       const assistantMessage: Message = { role: "assistant", content: data.message };
+      const returnedChatId = data.chatId || chatIdToUpdate;
       setMessages(prev => [...prev, assistantMessage]);
-      if (chatIdToUpdate) {
+      if (returnedChatId) {
         setAllChatMessages(prevStore => {
           const newStore = { ...prevStore };
-          Object.defineProperty(newStore, chatIdToUpdate as string, {
-            value: [...(prevStore[chatIdToUpdate as string] || []), assistantMessage],
+          Object.defineProperty(newStore, returnedChatId as string, {
+            value: [...(prevStore[returnedChatId as string] || []), assistantMessage],
             writable: true,
             enumerable: true,
             configurable: true
           });
           return newStore;
         });
+        if (currentChatId === null) {
+          setCurrentChatId(returnedChatId);
+          const newChatTitle = currentInput.length > 30 
+              ? currentInput.substring(0, 27) + '...'
+              : currentInput;
+          setChatHistory(prev => {
+            // Check if the chat ID already exists to avoid duplicates
+            if (prev.some(chat => chat.id === returnedChatId)) {
+              return prev;
+            }
+            return [{ id: returnedChatId, title: newChatTitle }, ...prev];
+          });
+        }
       }
       setIsLoading(false);
     } catch (err) {
