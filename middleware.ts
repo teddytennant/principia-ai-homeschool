@@ -12,6 +12,8 @@ const EXEMPT_PATHS = [
   '/sitemap.xml',
 ];
 
+const SITE_PASSWORD = `TennantFam2467*/`;
+
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -25,8 +27,8 @@ export function middleware(req: NextRequest) {
   }
 
   // Check site password cookie
-  const sitePass = req.cookies.get('site_pass');
-  if (sitePass !== 'TennantFam2467*/') {
+  const sitePass = req.cookies.get('site_pass')?.value;
+  if (sitePass !== SITE_PASSWORD) {
     const url = req.nextUrl.clone();
     url.pathname = '/password';
     return NextResponse.redirect(url);
