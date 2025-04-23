@@ -351,10 +351,10 @@ export default function Home() {
             <div className="max-w-5xl mx-auto px-4 text-center relative z-10">
               <motion.div variants={staggerChildren}>
                 <motion.h2 variants={fadeInUp} className="text-3xl md:text-5xl font-bold text-white mb-6">
-                  Shape the Future of Learning
+                  Empower Your Homeschool Journey
                 </motion.h2>
                 <motion.p variants={fadeInUp} className="text-lg md:text-xl text-gray-300 mb-6 max-w-3xl mx-auto">
-                  Be a part of the educational revolution with Principia AI&#39;s innovative platform.
+                  Principia AI is designed for homeschooling families—unlock personalized, engaging, and flexible learning for every child. Support your family's unique educational path with our powerful AI tools.
                 </motion.p>
                 <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row justify-center gap-4">
                   <motion.div 
@@ -368,7 +368,7 @@ export default function Home() {
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-500 opacity-0 hover:opacity-30 transition-opacity duration-300 rounded-full"></div>
                     <a href="/pricing" className="inline-flex items-center px-10 py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-full shadow-xl shadow-indigo-500/40 transition-all duration-300 relative z-10">
-                      Start Your Journey
+                      Explore Homeschool Plans
                     </a>
                   </motion.div>
                   <motion.div 
