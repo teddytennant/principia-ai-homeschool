@@ -3,10 +3,9 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AuthGuard } from '@/app/chat/AuthGuard';
 import { useTeacherSettings } from '@/lib/teacher-settings-context';
 import { Switch } from "@/components/ui/switch";
-import { supabase } from '@/lib/supabaseClient';
 
 export default function TeacherSettingsPage() {
-  const { settings, updateSettings, updateStudentSettings } = useTeacherSettings();
+  const { settings, updateSettings } = useTeacherSettings();
 
   const handleAiEnabledChange = (checked: boolean) => {
     updateSettings({ isAiEnabled: checked });
@@ -132,9 +131,9 @@ export default function TeacherSettingsPage() {
                 ))}
               </div>
               {settings.subjects.some(s => s.id === 'general') && (
-                <div className="p-3 border border-yellow-500 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-md">
-                  <strong>Warning:</strong> Selecting 'General' as a subject will apply your curriculum and context to all subjects for your students, which may affect interactions across different classes if they have multiple teachers.
-                </div>
+              <div className="p-3 border border-yellow-500 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-md">
+                <strong>Warning:</strong> Selecting 'General' as a subject will apply your curriculum and context to all subjects for your students, which may affect interactions across different classes if they have multiple teachers.
+              </div>
               )}
               <div className="space-y-3">
                 <label className="block text-lg font-medium text-gray-700 dark:text-gray-300">Additional Context for General Subject</label>

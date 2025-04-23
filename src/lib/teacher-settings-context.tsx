@@ -1,7 +1,6 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import Cookies from 'js-cookie';
 import { supabase } from '@/lib/supabaseClient';
 
 // Define the types for our curriculum items

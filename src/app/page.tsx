@@ -2,7 +2,6 @@
 
 import { HeroSection } from "@/components/blocks/hero-section-dark";
 import { HowItWorksSection } from "@/components/blocks/HowItWorksSection";
-import { CallToActionSection } from "@/components/blocks/CallToActionSection";
 import { FeaturesSectionWithBentoGrid } from "@/components/blocks/feature-section-with-bento-grid";
 import { ComparisonSection } from "@/components/blocks/ComparisonSection";
 import { OurMissionSection } from "@/components/blocks/OurMissionSection";
@@ -28,11 +27,6 @@ export default function Home() {
         staggerChildren: 0.2
       }
     }
-  };
-  const cardHover = {
-    scale: 1.05,
-    boxShadow: "0 15px 30px -10px rgba(79, 70, 229, 0.3)",
-    transition: { duration: 0.3 }
   };
   const slideInLeft = {
     hidden: { opacity: 0, x: -100 },
@@ -297,15 +291,15 @@ export default function Home() {
                   variants={fadeInUp}
                   className="bg-gray-800/80 p-8 rounded-2xl border border-indigo-700/30 shadow-xl shadow-indigo-900/20"
                 >
-                  <p className="text-gray-300 italic text-lg mb-4">"Principia AI has revolutionized how my students approach learning. The depth of engagement is unparalleled."</p>
-                  <p className="text-indigo-300 font-semibold">- Dr. Sarah Mitchell, Ed.D., High School Principal</p>
+                <p className="text-gray-300 italic text-lg mb-4">"Principia AI has revolutionized how my students approach learning. The depth of engagement is unparalleled."</p>
+                <p className="text-indigo-300 font-semibold">- Dr. Sarah Mitchell, Ed.D., High School Principal</p>
                 </motion.div>
                 <motion.div 
                   variants={fadeInUp}
                   className="bg-gray-800/80 p-8 rounded-2xl border border-indigo-700/30 shadow-xl shadow-indigo-900/20"
                 >
-                  <p className="text-gray-300 italic text-lg mb-4">"As a student, I feel challenged and supported. It's like having a personal tutor who understands me."</p>
-                  <p className="text-indigo-300 font-semibold">- Emily Chen, 10th Grade Student</p>
+                <p className="text-gray-300 italic text-lg mb-4">"As a student, I feel challenged and supported. It's like having a personal tutor who understands me."</p>
+                <p className="text-indigo-300 font-semibold">- Emily Chen, 10th Grade Student</p>
                 </motion.div>
               </div>
               <motion.div 

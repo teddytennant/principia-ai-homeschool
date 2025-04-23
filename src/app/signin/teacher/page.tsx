@@ -13,7 +13,6 @@ export default function TeacherSignIn() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +70,7 @@ export default function TeacherSignIn() {
           }, 100);
         }
       } catch (err) {
+        console.error('Error during role verification:', err);
         setIsLoading(false);
         setError("Unexpected error during role verification. Please try again.");
         await supabase.auth.signOut();

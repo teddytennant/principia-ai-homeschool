@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ success: false, message: 'Incorrect password' }, { status: 401 });
   } catch (err) {
+    console.error('Error processing request:', err);
     return NextResponse.json({ success: false, message: 'Invalid request' }, { status: 400 });
   }
 }

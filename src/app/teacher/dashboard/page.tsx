@@ -9,15 +9,12 @@ import { SettingsControls } from '@/components/teacher/SettingsControls';
 import { CurriculumUploader } from '@/components/teacher/CurriculumUploader';
 import { StudentActivityMonitor } from '@/components/teacher/StudentActivityMonitor';
 import { SubjectSettings } from '@/components/teacher/SubjectSettings';
-import { BookOpen, Users, Info } from 'lucide-react';
+import { BookOpen, Users } from 'lucide-react';
 
 import { AuthGuard } from '@/app/chat/AuthGuard';
 
 export default function TeacherDashboardPage() {
   // Only authenticated users can access this page
-  // Fetch teacher name from session/profile if available.
-  // TODO: Implement actual fetching of teacher name from backend or session data.
-  const teacherName = "Teacher"; // Placeholder until backend integration is implemented.
 
   return (
     <AuthGuard>

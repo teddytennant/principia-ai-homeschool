@@ -28,6 +28,7 @@ export default function PasswordGatePage() {
         setError(errorData.error || 'Incorrect password. Please try again.');
       }
     } catch (err) {
+      console.error('Error validating password:', err);
       setError('An error occurred. Please try again later.');
     }
   };

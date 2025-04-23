@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-// Adjust this if your auth cookie has a different name
-const AUTH_COOKIE_NAME = 'token';
-const SUPABASE_AUTH_COOKIE_PREFIX = 'sb-'; // Supabase auth cookies start with this prefix
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

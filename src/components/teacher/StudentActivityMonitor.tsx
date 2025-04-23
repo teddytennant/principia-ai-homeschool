@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { User, Clock, MessageCircle, FileUp, LogOut, RefreshCw, Settings } from 'lucide-react'; // Icons
+import { User, Clock, MessageCircle, FileUp, LogOut, RefreshCw } from 'lucide-react'; // Icons
 import { useTeacherSettings } from '@/lib/teacher-settings-context';
 import { Switch } from "@/components/ui/switch";
 import { supabase } from '@/lib/supabaseClient';
@@ -79,7 +79,7 @@ const fetchStudentActivity = async (): Promise<ActivityLog[]> => {
         console.log("Fetched activity data:", activityData);
 
         // Map the activity data to the ActivityLog interface
-            const activityLogs: ActivityLog[] = activityData.map((activity: any) => {
+        const activityLogs: ActivityLog[] = activityData.map((activity: { id: string; student_id: string; activity_type: string }) => {
             const student = students.find(s => s.id === activity.student_id);
             return {
                 id: activity.id,
@@ -185,7 +185,7 @@ const fetchCurrentStudents = async (): Promise<Student[]> => {
             }
 
             const students: Student[] = relData.map((rel: { student_id: string; status: string }) => {
-                const profile = profilesData.find((p: { id: string }) => p.id === rel.student_id);
+                const profile = profilesData.find((p: { id: string; first_name?: string; last_name?: string }) => p.id === rel.student_id);
                 if (profile) {
                     return {
                         id: rel.student_id,
@@ -193,7 +193,7 @@ const fetchCurrentStudents = async (): Promise<Student[]> => {
                         isActive: rel.status === 'active'
                     };
                 } else if (mappingData) {
-                    const mapping = mappingData.find((m: { student_id: string }) => m.student_id === rel.student_id);
+                    const mapping = mappingData.find((m: { student_id: string; first_name?: string; last_name?: string }) => m.student_id === rel.student_id);
                     if (mapping) {
                         return {
                             id: rel.student_id,

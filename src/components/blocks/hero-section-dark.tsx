@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from 'next/link'
 import Image from 'next/image'
 import { cn } from "@/lib/utils"
-import { ChevronRight, Brain } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { motion } from 'framer-motion'
 import { ButtonColorful } from "@/components/ui/button-colorful"
 
@@ -157,7 +157,6 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
       description = "Guide students toward deeper understanding with our AI-powered guided tutor. Designed for responsible classroom use, we focus on teaching students how to think, not what to think.",
       ctaText = "Get Started Free",
       ctaHref = "/signin",
-      bottomImage,
       gridOptions = {},
       ...props
     },
@@ -276,9 +275,11 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
                 <div className="relative overflow-hidden rounded-xl border border-indigo-700/30">
                   <div className="aspect-video bg-gradient-to-br from-indigo-900/50 to-gray-900/80 relative">
                     <div className="absolute inset-0 flex justify-center items-center">
-                      <img 
+                      <Image 
                         src="/videos/ai-innovation.gif" 
                         alt="AI Innovation Demonstration" 
+                        width={1280}
+                        height={720}
                         className="w-full h-full object-cover rounded-lg" 
                       />
                     </div>

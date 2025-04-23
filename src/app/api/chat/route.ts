@@ -344,7 +344,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate system prompt based on settings
-    const systemPrompt = generateSystemPrompt(subject, settings);
+    const systemPrompt = generateSystemPrompt(sanitizedSubject, settings);
     
 // Add curriculum context if available
     const curriculumContext = formatCurriculumContext(settings.curriculum, subject, settings.subjects || [{ id: 'general', name: 'General' }]);

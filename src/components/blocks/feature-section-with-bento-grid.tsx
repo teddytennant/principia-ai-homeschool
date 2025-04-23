@@ -3,7 +3,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import { motion } from 'framer-motion';
-import { CheckCircle, Brain, Users, Zap, Globe, BookOpen, Shield, ChevronRight } from 'lucide-react';
+import { Brain, Users, Zap, Globe, BookOpen, Shield, ChevronRight } from 'lucide-react';
 
 const features = [
   {
