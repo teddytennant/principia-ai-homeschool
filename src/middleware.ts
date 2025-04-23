@@ -1,59 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
 // Adjust this if your auth cookie has a different name
 const AUTH_COOKIE_NAME = 'token';
 const SUPABASE_AUTH_COOKIE_PREFIX = 'sb-'; // Supabase auth cookies start with this prefix
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Check for site-wide password before anything else
-  const sitePassword = req.cookies.get('site-password')?.value;
-  if (sitePassword !== 'correct' && pathname !== '/password-gate') {
-    // Redirect to password gate page if password is not set or incorrect, and not already on password-gate
-    const url = req.nextUrl.clone();
-    url.pathname = '/password-gate';
-    return NextResponse.redirect(url);
+  // Create a Supabase client for middleware
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { get: (name) => req.cookies.get(name)?.value } }
+  );
+
+  // Check if the user is authenticated and get their role from Supabase
+  const getUserRole = async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        return null;
+      }
+
+      // Fetch user role from a profiles table or similar in Supabase
+      const { data, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .limit(1);
+
+      if (profileError || !data || data.length === 0) {
+        console.error('Error fetching user role from Supabase:', profileError?.message);
+        return null;
+      }
+
+      return data[0].role;
+    } catch (error) {
+      console.error('Error in getUserRole:', error);
+      return null;
+    }
+  };
+
+  // Check if user is authenticated and get role
+  const role = await getUserRole();
+  
+  // Check for role cookie as a fallback if direct role check fails
+  const roleCookie = req.cookies.get('role')?.value;
+  const effectiveRole = role || roleCookie;
+
+  // Always allow access to sign-in pages if not authenticated
+  if (!effectiveRole && (pathname.startsWith('/signin') || pathname.startsWith('/teacher/signin'))) {
+    return NextResponse.next();
   }
 
-  // Allow access to the homepage, pricing, teacher sign in, student sign in, and Next.js assets
+  // Allow access to the homepage, pricing, and Next.js assets
   // Exclude static files (e.g., favicon.ico, .png, .jpg, .svg, .css, .js)
   const staticFilePattern = /\.(ico|png|jpg|jpeg|svg|css|js|webmanifest|txt|woff2?|ttf|eot)$/i;
   if (
     pathname === '/' ||
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
     pathname.startsWith('/pricing') ||
-    pathname.startsWith('/teacher/signin') ||
-    pathname.startsWith('/signin') || // student sign in
-    pathname.startsWith('/chat') || // allow chat for students
-    pathname.startsWith('/password-gate') || // allow access to password gate page
     staticFilePattern.test(pathname)
   ) {
     return NextResponse.next();
   }
-
-  // Check for authentication cookie (either custom token or Supabase auth cookie)
-  // Use sb-access-token cookie for authentication check
-  const accessToken = req.cookies.get('sb-access-token')?.value;
-  // Read role cookie
-  const role = req.cookies.get('role')?.value;
   
-  if (!accessToken) {
-    // Redirect unauthenticated users to the appropriate sign-in page
-    const url = req.nextUrl.clone();
-    if (pathname.startsWith('/teacher/dashboard')) {
-      url.pathname = '/signin/teacher';
-    } else if (pathname.startsWith('/chat')) {
-      url.pathname = '/signin';
-    } else {
-      url.pathname = '/';
+  // Restrict access to API routes and chat to authenticated users only
+  if (pathname.startsWith('/api') || pathname.startsWith('/chat')) {
+    if (!effectiveRole) {
+      const url = req.nextUrl.clone();
+      url.pathname = '/signin/student';
+      return NextResponse.redirect(url);
     }
-    return NextResponse.redirect(url);
-  } else if (accessToken) {
+    return NextResponse.next();
+  }
+
+  if (effectiveRole) {
     // Role-based dashboard access
     if (pathname.startsWith('/teacher/dashboard')) {
-      if (role === 'teacher') {
+      if (effectiveRole === 'teacher') {
         return NextResponse.next();
       } else {
         // Student or unknown role trying to access teacher dashboard
@@ -63,7 +89,7 @@ export function middleware(req: NextRequest) {
       }
     }
     if (pathname.startsWith('/chat')) {
-      if (role === 'student') {
+      if (effectiveRole === 'student') {
         return NextResponse.next();
       } else {
         // Teacher or unknown role trying to access student chat
@@ -75,9 +101,9 @@ export function middleware(req: NextRequest) {
     // Prevent redirecting authenticated users to homepage if coming from sign-in
     if (pathname === '/' || pathname.startsWith('/signin')) {
       const url = req.nextUrl.clone();
-      if (role === 'teacher') {
+      if (effectiveRole === 'teacher') {
         url.pathname = '/teacher/dashboard';
-      } else if (role === 'student') {
+      } else if (effectiveRole === 'student') {
         url.pathname = '/chat';
       } else {
         url.pathname = '/';

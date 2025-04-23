@@ -120,3 +120,78 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom animations for premium effects */
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes bg-shift {
+  0% { background-position: 0 0; }
+  100% { background-position: 100px 100px; }
+}
+
+@keyframes bg-shift-slow {
+  0% { background-position: 0 0; }
+  100% { background-position: 50px 50px; }
+}
+
+@keyframes grid-shift {
+  0% { background-position: 0 0; }
+  100% { background-position: 50px 0; }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes glow-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes highlight {
+  0%, 100% { border-color: transparent; }
+  50% { border-color: rgba(79, 70, 229, 0.6); }
+}
+
+.animate-pulse {
+  animation: pulse 3s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 5s ease-in-out infinite;
+}
+
+.animate-bg-shift {
+  animation: bg-shift 20s linear infinite;
+}
+
+.animate-bg-shift-slow {
+  animation: bg-shift-slow 30s linear infinite;
+}
+
+.animate-grid-shift {
+  animation: grid-shift 15s linear infinite;
+}
+
+.animate-gradient-shift {
+  animation: gradient-shift 15s ease infinite;
+  background-size: 200% 200%;
+}
+
+.animate-glow-in {
+  animation: glow-in 1s ease-out forwards;
+}
+
+.animate-highlight {
+  animation: highlight 3s ease-in-out infinite;
+}

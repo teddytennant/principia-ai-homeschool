@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Cookies from 'js-cookie';
+import { supabase } from '@/lib/supabaseClient';
 
 // Define the types for our curriculum items
 export interface CurriculumItem {
@@ -83,43 +84,158 @@ const defaultSettings: TeacherSettings = {
 export function TeacherSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<TeacherSettings>(defaultSettings);
 
-  // Load settings from localStorage on initial render (client-side only)
+  // Load settings from Supabase on initial render
   useEffect(() => {
-    try {
-      const savedSettings = localStorage.getItem('teacherSettings');
-      if (savedSettings) {
-        const parsedSettings = JSON.parse(savedSettings);
-        // Convert string dates back to Date objects for curriculum items
-        if (parsedSettings.curriculum) {
-          parsedSettings.curriculum = parsedSettings.curriculum.map((item: CurriculumItem) => ({
-            ...item,
-            uploadedAt: typeof item.uploadedAt === 'string' ? new Date(item.uploadedAt) : item.uploadedAt
-          }));
+    const fetchSettingsFromBackend = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) {
+          console.error('Error fetching user for settings:', error.message);
+          return;
         }
-        setSettings(parsedSettings);
+        if (!user) {
+          console.log('No authenticated user found, using default settings.');
+          return;
+        }
+
+        const { data, error: settingsError } = await supabase
+          .from('teacher_settings')
+          .select('settings')
+          .eq('teacher_id', user.id)
+          .limit(1);
+
+        if (settingsError) {
+          if (settingsError.message && settingsError.message.includes('relation "public.teacher_settings" does not exist')) {
+            console.error('Error fetching teacher settings from Supabase: The teacher_settings table does not exist in the database. Please run the create_teacher_settings_table.sql script to create it.');
+          } else {
+            console.error('Error fetching teacher settings from Supabase:', settingsError.message || settingsError || 'Unknown error');
+          }
+          return;
+        }
+
+        if (data && data.length > 0 && data[0].settings) {
+          const backendSettings = data[0].settings;
+          // Convert string dates back to Date objects for curriculum items
+          if (backendSettings.curriculum) {
+            backendSettings.curriculum = backendSettings.curriculum.map((item: CurriculumItem) => ({
+              ...item,
+              uploadedAt: typeof item.uploadedAt === 'string' ? new Date(item.uploadedAt) : item.uploadedAt
+            }));
+          }
+          setSettings(backendSettings);
+          console.log('Teacher settings loaded from Supabase for user:', user.id);
+        } else {
+          console.log('No settings found in Supabase, using default settings.');
+        }
+      } catch (error) {
+        console.error('Error fetching teacher settings from backend:', error);
       }
-    } catch (error) {
-      console.error('Error loading teacher settings from localStorage:', error);
-    }
+    };
+
+    fetchSettingsFromBackend();
   }, []);
 
-  // Save settings to localStorage and cookies whenever they change
+  // Save settings to Supabase whenever they change
   useEffect(() => {
-    try {
-      // Save to localStorage
-      localStorage.setItem('teacherSettings', JSON.stringify(settings));
-      
-      // Save to cookies for server-side access
-      // Use a 30-day expiration by default
-      Cookies.set('teacherSettings', JSON.stringify(settings), { expires: 30 });
-    } catch (error) {
-      console.error('Error saving teacher settings:', error);
-    }
+    const saveSettingsToBackend = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) {
+          console.error('Error fetching user for saving settings:', error.message);
+          return;
+        }
+        if (!user) {
+          console.log('No authenticated user found, cannot save settings.');
+          return;
+        }
+
+        const { error: upsertError } = await supabase
+          .from('teacher_settings')
+          .upsert({
+            teacher_id: user.id,
+            settings: settings
+          });
+
+        if (upsertError) {
+          if (upsertError.message && upsertError.message.includes('relation "public.teacher_settings" does not exist')) {
+            console.error('Error saving teacher settings to Supabase: The teacher_settings table does not exist in the database. Please run the create_teacher_settings_table.sql script to create it.');
+          } else {
+            console.error('Error saving teacher settings to Supabase:', upsertError.message || upsertError || 'Unknown error');
+          }
+          return;
+        }
+
+        console.log('Teacher settings saved to Supabase for user:', user.id);
+      } catch (error) {
+        console.error('Error saving teacher settings to backend:', error);
+      }
+    };
+
+    saveSettingsToBackend();
   }, [settings]);
 
-  // Update settings
+  // Update settings with validation
   const updateSettings = (newSettings: Partial<TeacherSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
+    // Basic validation to prevent malicious or malformed data
+    const validatedSettings: Partial<TeacherSettings> = {};
+
+    if (typeof newSettings.isAiEnabled === 'boolean') {
+      validatedSettings.isAiEnabled = newSettings.isAiEnabled;
+    }
+    if (typeof newSettings.aiOpenness === 'number' && newSettings.aiOpenness >= 0 && newSettings.aiOpenness <= 100) {
+      validatedSettings.aiOpenness = newSettings.aiOpenness;
+    }
+    if (typeof newSettings.gradeLevel === 'string' && newSettings.gradeLevel.trim() !== '') {
+      validatedSettings.gradeLevel = newSettings.gradeLevel;
+    }
+    if (Array.isArray(newSettings.curriculum)) {
+      validatedSettings.curriculum = newSettings.curriculum.filter(item => 
+        typeof item.id === 'string' && 
+        typeof item.name === 'string' && 
+        typeof item.content === 'string' && 
+        item.uploadedAt instanceof Date
+      );
+    }
+    if (Array.isArray(newSettings.subjects)) {
+      validatedSettings.subjects = newSettings.subjects.filter(subject => 
+        typeof subject.id === 'string' && 
+        typeof subject.name === 'string'
+      );
+    }
+    if (typeof newSettings.additionalContext === 'string') {
+      validatedSettings.additionalContext = newSettings.additionalContext;
+    }
+    if (newSettings.subjectContext && typeof newSettings.subjectContext === 'object') {
+      validatedSettings.subjectContext = {};
+      for (const [key, value] of Object.entries(newSettings.subjectContext)) {
+        if (typeof key === 'string' && typeof value === 'string') {
+          validatedSettings.subjectContext[key] = value;
+        }
+      }
+    }
+    if (newSettings.studentSettings && typeof newSettings.studentSettings === 'object') {
+      validatedSettings.studentSettings = {};
+      for (const [studentId, studentSettings] of Object.entries(newSettings.studentSettings)) {
+        if (typeof studentId === 'string' && studentSettings && typeof studentSettings === 'object') {
+          const validatedStudentSettings: Partial<StudentSettings> = {};
+          if (typeof studentSettings.isAiEnabled === 'boolean') {
+            validatedStudentSettings.isAiEnabled = studentSettings.isAiEnabled;
+          }
+          if (typeof studentSettings.aiOpenness === 'number' && studentSettings.aiOpenness >= 0 && studentSettings.aiOpenness <= 100) {
+            validatedStudentSettings.aiOpenness = studentSettings.aiOpenness;
+          }
+          if (typeof studentSettings.gradeLevel === 'string' && studentSettings.gradeLevel.trim() !== '') {
+            validatedStudentSettings.gradeLevel = studentSettings.gradeLevel;
+          }
+          if (typeof studentSettings.additionalContext === 'string') {
+            validatedStudentSettings.additionalContext = studentSettings.additionalContext;
+          }
+          validatedSettings.studentSettings[studentId] = validatedStudentSettings as StudentSettings;
+        }
+      }
+    }
+
+    setSettings(prev => ({ ...prev, ...validatedSettings }));
   };
 
   // Add curriculum item

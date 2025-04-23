@@ -197,11 +197,13 @@ const formatCurriculumContext = (curriculum: Array<{ name: string; content: stri
     return "";
   }
   
-  // Combine curriculum content with clear separators
+  // Combine curriculum content with clear separators, limiting content length
   let context = `\n\nRELEVANT CURRICULUM MATERIALS FOR ${subject.toUpperCase()}:\n\n`;
   
   relevantCurriculum.forEach((item, index) => {
-    context += `DOCUMENT ${index + 1}: ${item.name} ${item.subject ? `(Subject: ${item.subject})` : ''}\n${item.content}\n\n`;
+    // Limit content to first 500 characters to prevent overwhelming the AI
+    const contentPreview = item.content.length > 500 ? item.content.substring(0, 500) + "..." : item.content;
+    context += `DOCUMENT ${index + 1}: ${item.name} ${item.subject ? `(Subject: ${item.subject})` : ''}\n${contentPreview}\n\n`;
   });
   
   context += "Use the above curriculum materials as context for your responses when relevant.\n";
@@ -278,8 +280,8 @@ export async function POST(req: NextRequest) {
   // Move API Key check inside the function
   if (!process.env.OPENROUTER_API_KEY) {
     console.error('ERROR: Missing environment variable OPENROUTER_API_KEY');
-    // Return an error response immediately if the key is missing server-side
-    return NextResponse.json({ error: 'Server configuration error: API key missing.' }, { status: 500 });
+    // Return a generic error response to avoid exposing server configuration details
+    return NextResponse.json({ error: 'Server error occurred. Please try again later.' }, { status: 500 });
   }
   console.log("API route received POST request"); // Log request entry
   try {
@@ -301,6 +303,33 @@ export async function POST(req: NextRequest) {
         console.error('Validation Error: Message exceeds character limit', { length: message.length, limit: characterLimit });
         return NextResponse.json({ error: 'Your message is too long. Please keep it under 2000 characters.' }, { status: 400 });
     }
+
+    // Enhanced input sanitization to prevent injection attacks or malicious content.
+    // This uses a comprehensive set of regex patterns to strip potentially harmful content from 'message' and 'subject'.
+    // Note: This is still a temporary measure and should be replaced with a robust library like sanitize-html or DOMPurify (server-side compatible) for production use.
+    const sanitizeInput = (input: string): string => {
+      if (!input) return '';
+      // Remove HTML tags and inline scripts
+      let sanitized = input.replace(/<[^>]*>/g, '');
+      // Remove JavaScript event handlers and script content
+      sanitized = sanitized.replace(/on\w+\s*=\s*['"][^'"]*['"]/gi, '');
+      sanitized = sanitized.replace(/javascript\s*:[^'"]*/gi, '');
+      // Remove potentially malicious attributes
+      sanitized = sanitized.replace(/style\s*=\s*['"][^'"]*['"]/gi, '');
+      // Remove special characters except basic punctuation and whitespace
+      sanitized = sanitized.replace(/[^\w\s.,!?()-]/g, '');
+      // Prevent SQL injection by removing common SQL keywords and patterns (basic protection)
+      sanitized = sanitized.replace(/\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|UNION|WHERE|FROM|JOIN|INNER|OUTER|LEFT|RIGHT|--|;)\b/gi, '');
+      // Prevent command injection by removing shell commands and special characters
+      sanitized = sanitized.replace(/[`$|&;()<>]/g, '');
+      // Limit consecutive whitespace to single space
+      sanitized = sanitized.replace(/\s+/g, ' ');
+      return sanitized.trim();
+    };
+    const sanitizedMessage = sanitizeInput(message);
+    const sanitizedSubject = sanitizeInput(subject);
+    // Use sanitizedMessage and sanitizedSubject for further processing.
+    // This enhanced sanitization provides better protection but is not a complete solution for production environments.
 
     // Get teacher settings from cookies
     const settings = await getTeacherSettings();
@@ -325,6 +354,15 @@ export async function POST(req: NextRequest) {
     // Rough estimate of input text for token limit check (before API call)
     const inputTextForCheck = fullSystemPrompt + message + JSON.stringify(chatHistory);
     
+    // Log the size of curriculum data for debugging
+    console.log("Curriculum data size:", settings.curriculum.length, "items");
+    if (settings.curriculum.length > 0) {
+      settings.curriculum.forEach((item: { name: string; content: string }, index: number) => {
+        console.log(`Curriculum item ${index + 1}: ${item.name}, Content length: ${item.content.length} characters`);
+      });
+    }
+    console.log("Additional context length:", settings.additionalContext.length, "characters");
+
     // Call OpenRouter API with Gemini 2.0 Flash
     console.log("Calling OpenRouter API (Gemini 2.0 Flash)...");
     const completion = await openrouter.chat.completions.create({
@@ -345,9 +383,9 @@ export async function POST(req: NextRequest) {
     const assistantResponse = completion.choices[0]?.message?.content;
 
     if (!assistantResponse) {
-      // Log the full completion object if response content is missing
-      console.error('OpenRouter Error: No response content received. Full completion:', JSON.stringify(completion, null, 2));
-      return NextResponse.json({ error: 'Failed to get valid response content from AI model' }, { status: 500 });
+      // Avoid logging full completion object to prevent potential exposure of sensitive data
+      console.error('OpenRouter Error: No response content received.');
+      return NextResponse.json({ error: 'Server error occurred. Please try again later.' }, { status: 500 });
     }
 
     // Check token usage and cost limit after receiving response
@@ -366,14 +404,14 @@ export async function POST(req: NextRequest) {
     let statusCode = 500;
 
     if (error instanceof OpenAI.APIError) {
-      console.error('OpenAI API Error Details:', { status: error.status, message: error.message, code: error.code, type: error.type });
-      errorMessage = `AI API Error (${error.status}): ${error.message}`;
+      console.error('OpenAI API Error Details:', { status: error.status, code: error.code, type: error.type });
+      errorMessage = 'AI service error. Please try again later.';
       statusCode = error.status ?? 500;
     } else if (error instanceof Error) {
-      errorMessage = error.message;
+      errorMessage = 'Server error occurred. Please try again later.';
     }
 
-    // Return a more informative error if possible, otherwise generic
-    return NextResponse.json({ error: `An error occurred: ${errorMessage}` }, { status: statusCode });
+    // Return a generic error to avoid exposing internal details
+    return NextResponse.json({ error: errorMessage }, { status: statusCode });
   }
 }

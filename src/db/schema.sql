@@ -30,7 +30,9 @@ CREATE TABLE IF NOT EXISTS profiles (
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     profile_data JSONB, -- Flexible field for role-specific data (e.g., subject_areas for teachers, grade_level for students)
+                        -- Note: Ensure application-level validation for JSONB data to prevent errors or security issues from malformed data.
     preferences JSONB, -- User preferences like notifications or settings
+                       -- Note: Validate JSONB structure in the application to ensure data integrity.
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -89,8 +91,9 @@ CREATE TABLE IF NOT EXISTS student_activity (
 );
 
 -- Student Name Mapping Table: Dedicated table to map student IDs to names
--- Note: Ensure that the 'profiles' table exists before running this part of the script.
--- If you encounter errors, you may need to run this table creation separately after ensuring dependencies.
+-- Note: This table may be redundant since 'profiles' already contains 'first_name' and 'last_name'.
+-- Consider removing this table if not strictly necessary, or ensure synchronization with 'profiles' to prevent data inconsistency.
+-- If you encounter errors, ensure the 'profiles' table exists before running this part of the script.
 CREATE TABLE IF NOT EXISTS student_name_mapping (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     student_id UUID UNIQUE REFERENCES profiles(id) ON DELETE CASCADE,

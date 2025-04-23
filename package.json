@@ -15,6 +15,7 @@
     "@radix-ui/react-tabs": "^1.1.4",
     "@splinetool/react-spline": "^4.0.0",
     "@splinetool/runtime": "^1.9.82",
+    "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.4",
     "@tabler/icons-react": "^3.31.0",
     "@types/js-cookie": "^3.0.6",

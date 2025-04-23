@@ -10,15 +10,25 @@ export default function PasswordGatePage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Replace 'your-site-password' with the actual password you want to use
-    if (password === 'teddyisawesome@14') {
-      // Set a cookie to indicate the password has been entered correctly
-      document.cookie = 'site-password=correct; path=/; max-age=86400'; // 24 hours
-      router.push('/');
-    } else {
-      setError('Incorrect password. Please try again.');
+    setError(null);
+    // Use server-side validation for site access password.
+    try {
+      const response = await fetch('/api/validate-site-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (response.ok) {
+        // Upon successful validation, redirect to homepage or set a secure token.
+        router.push('/');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Incorrect password. Please try again.');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again later.');
     }
   };
 

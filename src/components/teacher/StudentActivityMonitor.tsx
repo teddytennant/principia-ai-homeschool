@@ -256,7 +256,18 @@ const StudentActivityMonitor = React.forwardRef<HTMLDivElement, React.HTMLAttrib
                 .finally(() => {
                     setIsLoading(false);
                 });
-            // TODO: Consider adding real-time updates (e.g., WebSockets, polling)
+            // TODO: Implement real-time updates using WebSockets or polling for live student activity monitoring.
+            // Placeholder for setting up real-time subscription or interval-based polling.
+            /*
+            const setupRealTimeUpdates = () => {
+              // Example for WebSocket or Supabase real-time subscription.
+              // supabase.from('student_activity').on('INSERT', handleNewActivity).subscribe();
+              // Example for polling:
+              // const interval = setInterval(fetchStudentActivity, 30000); // Refresh every 30 seconds.
+              // return () => clearInterval(interval);
+            };
+            setupRealTimeUpdates();
+            */
         }, []); // Fetch on component mount
 
         const formatTimestamp = (date: Date) => {

@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from 'next/link'
 import Image from 'next/image'
 import { cn } from "@/lib/utils"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight, Brain } from "lucide-react"
 import { motion } from 'framer-motion'
 import { ButtonColorful } from "@/components/ui/button-colorful"
 
@@ -66,6 +66,7 @@ import { useEffect, useRef } from "react";
 
 function AnimatedParticles() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const mousePosition = useRef({ x: -100, y: -100 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -74,10 +75,10 @@ function AnimatedParticles() {
     let animationFrameId: number;
     const particles: { x: number; y: number; r: number; dx: number; dy: number; o: number }[] = [];
     const w = window.innerWidth;
-    const h = 480;
+    const h = canvas.parentElement?.offsetHeight || 800; // Use parent container height or a fallback
     canvas.width = w;
     canvas.height = h;
-    for (let i = 0; i < 48; i++) {
+    for (let i = 0; i < 113; i++) {
       particles.push({
         x: Math.random() * w,
         y: Math.random() * h,
@@ -87,29 +88,60 @@ function AnimatedParticles() {
         o: 0.2 + Math.random() * 0.3,
       });
     }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      mousePosition.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    };
+
+    canvas.addEventListener('mousemove', handleMouseMove);
+
     function draw() {
       if (!ctx) return;
       ctx.clearRect(0, 0, w, h);
       for (const p of particles) {
+        const dist = Math.sqrt(
+          Math.pow(p.x - mousePosition.current.x, 2) + 
+          Math.pow(p.y - mousePosition.current.y, 2)
+        );
+        const influenceRadius = 250;
+        let newDx = p.dx;
+        let newDy = p.dy;
+        let newOpacity = p.o;
+
+        if (dist < influenceRadius) {
+          const angle = Math.atan2(p.y - mousePosition.current.y, p.x - mousePosition.current.x);
+          const force = (1 - dist / influenceRadius) * 4;
+          newDx += Math.cos(angle) * force;
+          newDy += Math.sin(angle) * force;
+          newOpacity = p.o + (1 - dist / influenceRadius) * 0.7;
+        }
+
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI);
-        ctx.fillStyle = `rgba(99,102,241,${p.o})`;
+        ctx.fillStyle = `rgba(99,102,241,${newOpacity})`;
         ctx.shadowColor = '#6366f1';
         ctx.shadowBlur = 12;
         ctx.fill();
         ctx.shadowBlur = 0;
-        p.x += p.dx;
-        p.y += p.dy;
+        p.x += newDx;
+        p.y += newDy;
         if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
         if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
       }
       animationFrameId = requestAnimationFrame(draw);
     }
     draw();
-    return () => cancelAnimationFrame(animationFrameId);
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+    };
   }, []);
   return (
-    <canvas ref={canvasRef} className="absolute inset-0 w-full h-[480px] pointer-events-none z-0" style={{ top: 0, left: 0 }} />
+    <canvas ref={canvasRef} className="absolute inset-0 w-full pointer-events-auto z-0" style={{ top: 0, left: 0, height: '100%' }} />
   );
 }
 
@@ -119,10 +151,10 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
       className,
       title = "Principia AI",
       subtitle = {
-        regular: "Socratic Learning, ",
+        regular: "Guided Learning, ",
         gradient: "AI-Powered",
       },
-      description = "Guide students toward deeper understanding with our AI-powered Socratic tutor. Designed for responsible classroom use, we focus on teaching students how to think, not what to think.",
+      description = "Guide students toward deeper understanding with our AI-powered guided tutor. Designed for responsible classroom use, we focus on teaching students how to think, not what to think.",
       ctaText = "Get Started Free",
       ctaHref = "/signin",
       bottomImage,
@@ -174,6 +206,12 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
       }
     };
 
+    // Hover animation for CTA button
+    const ctaHover = {
+      scale: 1.05,
+      transition: { duration: 0.3 }
+    };
+
     return (
       <div className={cn("relative overflow-hidden bg-gradient-to-br from-indigo-900 via-gray-900 to-black", className)} ref={ref} {...props}>
         <section className="relative max-w-full mx-auto z-1">
@@ -220,32 +258,37 @@ const HeroSection = React.forwardRef<HTMLDivElement, HeroSectionProps>(
               <motion.p variants={itemVariants} className="max-w-3xl mx-auto text-indigo-300 text-xl font-semibold italic mt-4">
                 Teaching students how to think, not what to think.
               </motion.p>
-              <motion.div variants={itemVariants} className="items-center justify-center pt-8">
+              <motion.div 
+                variants={itemVariants} 
+                className="items-center justify-center pt-8"
+                whileHover={ctaHover}
+              >
                 <Link href={ctaHref}>
                   <ButtonColorful label={ctaText} className="px-8 py-6 text-lg rounded-full shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all duration-300" />
                 </Link>
               </motion.div>
             </div>
-            {bottomImage && (
-              <motion.div variants={itemVariants} className="mt-16 md:mt-24 mx-auto max-w-5xl relative z-10">
-                <Image
-                  src={bottomImage.light}
-                  className="w-full rounded-xl border border-gray-200 shadow-2xl dark:hidden"
-                  alt="Product preview light mode"
-                  width={1200}
-                  height={800}
-                  priority
-                />
-                <Image
-                  src={bottomImage.dark}
-                  className="w-full rounded-xl border border-indigo-500/30 shadow-xl shadow-indigo-500/20 dark:block"
-                  alt="Product preview dark mode"
-                  width={1200}
-                  height={800}
-                  priority
-                />
-              </motion.div>
-            )}
+            <motion.div 
+              variants={itemVariants} 
+              className="mt-16 md:mt-24 mx-auto max-w-5xl relative z-10"
+            >
+              <div className="bg-gray-800/90 p-6 rounded-2xl border border-indigo-700/20 shadow-xl shadow-indigo-900/10">
+                <div className="relative overflow-hidden rounded-xl border border-indigo-700/30">
+                  <div className="aspect-video bg-gradient-to-br from-indigo-900/50 to-gray-900/80 relative">
+                    <div className="absolute inset-0 flex justify-center items-center">
+                      <img 
+                        src="/videos/ai-innovation.gif" 
+                        alt="AI Innovation Demonstration" 
+                        className="w-full h-full object-cover rounded-lg" 
+                      />
+                    </div>
+                  </div>
+                </div>
+                <motion.p variants={itemVariants} className="text-center text-gray-300 mt-6">
+                  Watch how Principia AI engages students with dynamic questions, adapting to their responses in real-time to foster critical thinking.
+                </motion.p>
+              </div>
+            </motion.div>
           </motion.div>
         </section>
       </div>

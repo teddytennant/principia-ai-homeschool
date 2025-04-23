@@ -48,7 +48,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon: Ico
 export const FeaturesSection = () => {
   const features = [
     {
-      title: "Socratic Learning Method",
+      title: "Inquiry-Based Learning",
       description: "Engages students through guided questions, fostering critical thinking instead of providing direct answers.",
       icon: BrainCircuit
     },
@@ -99,4 +99,4 @@ export const FeaturesSection = () => {
       </div>
     </motion.section>
   );
-}; 
+};
