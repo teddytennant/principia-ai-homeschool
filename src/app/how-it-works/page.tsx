@@ -76,6 +76,22 @@ export default function HowItWorks() {
         <div className="fixed inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAwIDEwMDAiPjxwYXRoIGQ9Ik01MDAgNTAwQzI1MCA1MDAgMCA3NTAgMCAxMDAwQzAgMTI1MCAyNTAgMTUwMCA1MDAgMTUwMEM3NTAgMTUwMCAxMDAwIDEyNTAgMTAwMCAxMDAwQzEwMDAgNzUwIDc1MCA1MDAgNTAwIDUwMFoiIGZpbGw9InJnbGEoNzksIDcwLCAyMjksIDAuMTgpIi8+PHBhdGggZD0iTTUwMCA1MDBDNzUwIDUwMCAxMDAwIDc1MCAxMDAwIDEwMDBDMTAwMCAxMjUwIDc1MCAxNTAwIDUwMCAxNTAwQzI1MCAxNTAwIDAgMTI1MCAwIDEwMDBDMCA3NTAgMjUwIDUwMCA1MDAgNTAwWiIgZmlsbD0icmdiYSg3OSwgNzAsIDIyOSwgMC4xKSIvPjwvc3ZnPg==')] bg-repeat opacity-15 z-0 pointer-events-none animate-bg-shift-slow"></div>
         <div className="fixed inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(147,51,234,0.2),transparent_60%)] opacity-20 z-0 pointer-events-none animate-pulse"></div>
         <main className="flex-grow z-10">
+          {/* Progressive Disclosure Engine Explanation */}
+          <section className="py-16 md:py-24 bg-gradient-to-br from-black via-indigo-950 to-gray-950 relative z-10 border-b border-indigo-900/30">
+            <div className="max-w-4xl mx-auto px-6 text-center">
+              <h2 className="text-3xl md:text-5xl font-bold text-indigo-400 mb-4">Curriculum-Locked Progressive Disclosure</h2>
+              <p className="text-lg md:text-2xl text-gray-200 mb-4">Principia AI securely encrypts every answer token-by-token. Students unlock the full answer only as they demonstrate mastery.</p>
+              <ul className="mb-6 text-left md:text-center text-gray-300 text-base md:text-lg space-y-2 mx-auto max-w-2xl">
+                <li><span className="text-indigo-400 font-semibold">Encrypted tokens:</span> Each word or phrase is AES-encrypted, so answers can’t be read in advance.</li>
+                <li><span className="text-indigo-400 font-semibold">Mastery-based unlocking:</span> Key shards are released at 10%, 50%, and 75% mastery. The more a student learns, the more of the answer they can see.</li>
+                <li><span className="text-indigo-400 font-semibold">Merkle logging:</span> Every key release is recorded in a Merkle chain for transparency and auditability.</li>
+                <li><span className="text-indigo-400 font-semibold">Privacy-first:</span> Even Principia’s servers can’t reconstruct the answer unless the student earns all shards.</li>
+              </ul>
+              <div className="flex flex-col md:flex-row gap-4 justify-center">
+                <a href="/chat" className="inline-flex items-center px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-full transition-all duration-300 shadow-md shadow-indigo-500/30">Try Progressive Disclosure in Chat</a>
+              </div>
+            </div>
+          </section>
           <section className="py-20 md:py-32 bg-gradient-to-b from-indigo-900/90 via-gray-900/95 to-black relative overflow-hidden">
             <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAwIDEwMDAiPjxwYXRoIGQ9Ik01MDAgNTAwQzI1MCA1MDAgMCA3NTAgMCAxMDAwQzAgMTI1MCAyNTAgMTUwMCA1MDAgMTUwMEM3NTAgMTUwMCAxMDAwIDEyNTAgMTAwMCAxMDAwQzEwMDAgNzUwIDc1MCA1MDAgNTAwIDUwMFoiIGZpbGw9InJnbGEoNzksIDcwLCAyMjksIDAuMTgpIi8+PHBhdGggZD0iTTUwMCA1MDBDNzUwIDUwMCAxMDAwIDc1MCAxMDAwIDEwMDBDMTAwMCAxMjUwIDc1MCAxNTAwIDUwMCAxNTAwQzI1MCAxNTAwIDAgMTI1MCAwIDEwMDBDMCA3NTAgMjUwIDUwMCA1MDAgNTAwWiIgZmlsbD0icmdiYSg3OSwgNzAsIDIyOSwgMC4xKSIvPjwvc3ZnPg==')] bg-repeat opacity-15 animate-bg-shift"></div>
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(79,70,229,0.35),transparent_60%)] opacity-40 animate-pulse-slow"></div>

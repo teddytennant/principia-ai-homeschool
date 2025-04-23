@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
+import sss from 'shamirs-secret-sharing';
 
 // Placeholder values - ideally load from env vars
 
@@ -388,14 +390,87 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server error occurred. Please try again later.' }, { status: 500 });
     }
 
-    // Check token usage and cost limit after receiving response
-    const tokenCheck = await checkAndUpdateTokenUsage(inputTextForCheck, assistantResponse);
-    if (!tokenCheck.allowed) {
-      return NextResponse.json({ error: tokenCheck.message || 'Token limit exceeded for this student.' }, { status: 402 });
+    // --- BEGIN PROGRESSIVE DISCLOSURE ENGINE ---
+    // Inputs: assistantResponse (string), mastery_score (from body), curriculum_tag (from subject)
+    const { mastery_score = 0, curriculum_tag = subject, student_id: studentIdOverride } = body;
+    const studentId = studentIdOverride || await getStudentId();
+
+    // 1. Tokenize the assistant response (simple whitespace split for demo; replace with real tokenizer for production)
+    const tokens = assistantResponse.split(/(\s+)/); // keep whitespace tokens for correct reconstruction
+
+    // 2. Generate a random AES key
+    const aesKey = crypto.randomBytes(32); // 256-bit key
+    const iv = crypto.randomBytes(16); // 128-bit IV
+
+    // 3. Encrypt each token separately
+    const ciphertexts = tokens.map(token => {
+      const cipher = crypto.createCipheriv('aes-256-cbc', aesKey, iv);
+      let encrypted = cipher.update(token, 'utf8', 'base64');
+      encrypted += cipher.final('base64');
+      return encrypted;
+    });
+
+    // 4. Split the AES key into 3 shards (2 of 3 needed to reconstruct)
+    const shards = sss.split(aesKey, { shares: 3, threshold: 2 });
+    // Convert shards to base64 for transport
+    const shardsBase64 = shards.map(shard => shard.toString('base64'));
+
+    // 5. Determine which shards to release based on mastery_score
+    const unlocked_shards = [];
+    if (mastery_score >= 0.10) unlocked_shards.push(1);
+    if (mastery_score >= 0.50) unlocked_shards.push(2);
+    if (mastery_score >= 0.75) unlocked_shards.push(3);
+    // Only send the shards the student is eligible for
+    const released_shards = unlocked_shards.map(idx => ({ idx, shard: shardsBase64[idx-1] }));
+
+    // 6. Log every shard release in Supabase Merkle log
+    // Fetch previous hash for this student+curriculum_tag
+    let prev_hash = null;
+    let lastLog = null;
+    try {
+      const { data: logs, error: logErr } = await supabase
+        .from('shard_release_log')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('curriculum_tag', curriculum_tag)
+        .order('timestamp', { ascending: false })
+        .limit(1);
+      if (!logErr && logs && logs.length > 0) {
+        prev_hash = logs[0].merkle_hash;
+        lastLog = logs[0];
+      }
+    } catch (err) { console.warn('Merkle log fetch error', err); }
+
+    const now = new Date().toISOString();
+    for (const idx of unlocked_shards) {
+      // Merkle hash: hash of (student_id + curriculum_tag + idx + now + prev_hash)
+      const dataToHash = `${studentId}|${curriculum_tag}|${idx}|${now}|${prev_hash || ''}`;
+      const merkle_hash = crypto.createHash('sha256').update(dataToHash).digest('hex');
+      // Insert log
+      await supabase.from('shard_release_log').insert({
+        student_id: studentId,
+        curriculum_tag,
+        released_shard: idx,
+        merkle_hash,
+        prev_hash,
+        timestamp: now
+      });
+      prev_hash = merkle_hash;
     }
 
+    // 7. Return ciphertext, unlocked_shards, and curriculum_tag
+    return NextResponse.json({
+      ciphertext: ciphertexts,
+      iv: iv.toString('base64'),
+      unlocked_shards: released_shards, // [{idx, shard}]
+      curriculum_tag,
+      tokens_length: tokens.length
+    });
+    // --- END PROGRESSIVE DISCLOSURE ENGINE ---
+
     // Save chat messages to Supabase
-    const studentId = await getStudentId();
+    // (old logic moved below progressive disclosure)
+    // const studentId = await getStudentId();
     const chatId = req.headers.get('X-Chat-ID') || uuidv4(); // Use a chat ID from header if provided, else generate new
     const userMessage = { role: "user", content: message };
     const aiMessage = { role: "assistant", content: assistantResponse };

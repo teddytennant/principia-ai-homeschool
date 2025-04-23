@@ -84,19 +84,7 @@ export default function Home() {
         <main className="flex-grow z-10">
           {/* Hero Section with linear gradient background */}
           <div className="relative bg-gradient-to-br from-indigo-900/95 via-gray-900/98 to-black overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/30 to-gray-900/20 opacity-30 animate-gradient-shift-slow"></div>
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(79,70,229,0.1)_1px,transparent_1px),linear-gradient(to_bottom,rgba(79,70,229,0.1)_1px,transparent_1px)] bg-[size:30px_30px] opacity-20 animate-grid-shift-slow"></div>
-            <div className="absolute inset-0 flex justify-center items-center z-0 overflow-hidden">
-              <video 
-                autoPlay 
-                loop 
-                muted 
-                playsInline
-                className="w-full h-full object-cover opacity-20"
-              >
-                <source src="/videos/ai-innovation.gif" type="video/mp4" />
-              </video>
-            </div>
+            {/* Progressive Disclosure Engine Feature Section */}
             <motion.div
               ref={heroRef}
               initial="hidden"
@@ -112,9 +100,37 @@ export default function Home() {
                 description="Experience the future of learning with Principia AI, a cutting-edge platform designed for schools. Our advanced AI engages students with dynamic, thought-provoking questions, cultivating critical thinking and profound understanding."
                 ctaText="Join the Revolution"
                 ctaHref="/pricing"
-
               />
             </motion.div>
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/30 to-gray-900/20 opacity-30 animate-gradient-shift-slow"></div>
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(79,70,229,0.1)_1px,transparent_1px),linear-gradient(to_bottom,rgba(79,70,229,0.1)_1px,transparent_1px)] bg-[size:30px_30px] opacity-20 animate-grid-shift-slow"></div>
+            <div className="absolute inset-0 flex justify-center items-center z-0 overflow-hidden">
+              <video 
+                autoPlay 
+                loop 
+                muted 
+                playsInline
+                className="w-full h-full object-cover opacity-20"
+              >
+                <source src="/videos/ai-innovation.gif" type="video/mp4" />
+              </video>
+            </div>
+            {/* Curriculum-Locked Progressive Disclosure Section */}
+            <section className="py-12 md:py-20 bg-gradient-to-br from-black via-indigo-950 to-gray-950 relative z-10 border-b border-indigo-900/30">
+              <div className="max-w-4xl mx-auto px-6 text-center">
+                <h2 className="text-3xl md:text-5xl font-bold text-indigo-400 mb-4">Curriculum-Locked Progressive Disclosure</h2>
+                <p className="text-lg md:text-2xl text-gray-200 mb-4">Principia AI uses state-of-the-art cryptography to lock each AI-generated answer behind encrypted tokens.</p>
+                <ul className="mb-6 text-left md:text-center text-gray-300 text-base md:text-lg space-y-2 mx-auto max-w-2xl">
+                  <li><span className="text-indigo-400 font-semibold">Encrypted answers:</span> Each token is AES-encrypted and only unlocked as students demonstrate mastery.</li>
+                  <li><span className="text-indigo-400 font-semibold">Mastery-based unlocking:</span> Key shards are released at 10%, 50%, and 75% mastery, so students earn deeper access as they learn.</li>
+                  <li><span className="text-indigo-400 font-semibold">Merkle logging:</span> Every key release is logged on an auditable Merkle chain for full transparency and accountability.</li>
+                  <li><span className="text-indigo-400 font-semibold">Privacy-first:</span> Even our servers can’t read the full answer unless the student achieves mastery.</li>
+                </ul>
+                <div className="flex flex-col md:flex-row gap-4 justify-center">
+                  <a href="/how-it-works" className="inline-flex items-center px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-full transition-all duration-300 shadow-md shadow-indigo-500/30">See How Progressive Disclosure Works</a>
+                </div>
+              </div>
+            </section>
           </div>
           {/* Slogan integrated into HeroSection */}
           {/* Our Mission Section with unique background */}
