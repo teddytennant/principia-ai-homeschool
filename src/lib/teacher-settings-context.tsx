@@ -90,6 +90,11 @@ export function TeacherSettingsProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error) {
+          if (error.message === 'Auth session missing!') {
+            // Not logged in, use default settings silently
+            return;
+          }
+          // Only log unexpected errors
           console.error('Error fetching user for settings:', error.message);
           return;
         }
@@ -141,6 +146,11 @@ export function TeacherSettingsProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error) {
+          if (error.message === 'Auth session missing!') {
+            // Not logged in, skip saving silently
+            return;
+          }
+          // Only log unexpected errors
           console.error('Error fetching user for saving settings:', error.message);
           return;
         }
