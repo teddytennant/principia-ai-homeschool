@@ -112,10 +112,7 @@ export default function Home() {
                 description="Experience the future of learning with Principia AI, a cutting-edge platform designed for schools. Our advanced AI engages students with dynamic, thought-provoking questions, cultivating critical thinking and profound understanding."
                 ctaText="Join the Revolution"
                 ctaHref="/pricing"
-                bottomImage={{
-                  light: "/videos/ai-innovation.gif",
-                  dark: "/videos/ai-innovation.gif"
-                }}
+
               />
             </motion.div>
           </div>
@@ -291,14 +288,14 @@ export default function Home() {
                   variants={fadeInUp}
                   className="bg-gray-800/80 p-8 rounded-2xl border border-indigo-700/30 shadow-xl shadow-indigo-900/20"
                 >
-                <p className="text-gray-300 italic text-lg mb-4">"Principia AI has revolutionized how my students approach learning. The depth of engagement is unparalleled."</p>
+                <p className="text-gray-300 italic text-lg mb-4">&quot;Principia AI has revolutionized how my students approach learning. The depth of engagement is unparalleled.&quot;</p>
                 <p className="text-indigo-300 font-semibold">- Dr. Sarah Mitchell, Ed.D., High School Principal</p>
                 </motion.div>
                 <motion.div 
                   variants={fadeInUp}
                   className="bg-gray-800/80 p-8 rounded-2xl border border-indigo-700/30 shadow-xl shadow-indigo-900/20"
                 >
-                <p className="text-gray-300 italic text-lg mb-4">"As a student, I feel challenged and supported. It's like having a personal tutor who understands me."</p>
+                <p className="text-gray-300 italic text-lg mb-4">&quot;As a student, I feel challenged and supported. It&apos;s like having a personal tutor who understands me.&quot;</p>
                 <p className="text-indigo-300 font-semibold">- Emily Chen, 10th Grade Student</p>
                 </motion.div>
               </div>
@@ -341,7 +338,7 @@ export default function Home() {
                   Shape the Future of Learning
                 </motion.h2>
                 <motion.p variants={fadeInUp} className="text-lg md:text-xl text-gray-300 mb-6 max-w-3xl mx-auto">
-                  Be a part of the educational revolution with Principia AI's innovative platform.
+                  Be a part of the educational revolution with Principia AI&#39;s innovative platform.
                 </motion.p>
                 <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row justify-center gap-4">
                   <motion.div 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+
 import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Header } from '@/components/layout/Header';

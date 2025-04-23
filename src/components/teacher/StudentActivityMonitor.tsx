@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { User, Clock, MessageCircle, FileUp, LogOut, RefreshCw } from 'lucide-react'; // Icons
+import { User, Clock, MessageCircle, FileUp, LogOut, RefreshCw } from 'lucide-react'; // Icons (removed unused Settings icon)
 import { useTeacherSettings } from '@/lib/teacher-settings-context';
 import { Switch } from "@/components/ui/switch";
 import { supabase } from '@/lib/supabaseClient';
@@ -92,7 +92,7 @@ const fetchStudentActivity = async (): Promise<ActivityLog[]> => {
         });
 
         return activityLogs;
-    } catch (err) {
+    } catch (err: unknown) {
         console.error("Unexpected error fetching student activity:", err);
         console.log("Returning empty array due to unexpected error in fetching activity data. Check Supabase setup and permissions.");
         return [];
@@ -130,10 +130,10 @@ const fetchCurrentStudents = async (): Promise<Student[]> => {
         });
 
         let relData: Array<{ student_id: string; status: string }> | null = null;
-        let relError: any = null;
+        let relError: unknown = null;
         try {
             console.log("Attempting to fetch teacher-student relationships...");
-            const result = await Promise.race([fetchPromise, timeoutPromise]) as { data: Array<{ student_id: string; status: string }> | null; error: any };
+            const result = await Promise.race([fetchPromise, timeoutPromise]) as { data: Array<{ student_id: string; status: string }> | null; error: unknown };
             relData = result.data;
             relError = result.error;
             console.log("Fetch result received:", { data: relData ? relData.length : null, error: relError });
@@ -144,7 +144,7 @@ const fetchCurrentStudents = async (): Promise<Student[]> => {
         }
 
         if (relError) {
-            console.error("Error fetching teacher-student relationships from Supabase:", relError.message || "Timeout error");
+            console.error("Error fetching teacher-student relationships from Supabase:", relError instanceof Error ? relError.message : String(relError) || "Timeout error");
             // Store error message to display in UI via state update (will be handled in component)
             return [];
         }

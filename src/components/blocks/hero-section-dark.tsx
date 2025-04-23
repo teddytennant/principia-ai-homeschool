@@ -17,10 +17,7 @@ interface HeroSectionProps extends React.HTMLAttributes<HTMLDivElement> {
   description?: string
   ctaText?: string
   ctaHref?: string
-  bottomImage?: {
-    light: string
-    dark: string
-  }
+
   gridOptions?: {
     angle?: number
     cellSize?: number

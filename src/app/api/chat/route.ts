@@ -327,7 +327,7 @@ export async function POST(req: NextRequest) {
       sanitized = sanitized.replace(/\s+/g, ' ');
       return sanitized.trim();
     };
-    const sanitizedMessage = sanitizeInput(message);
+
     const sanitizedSubject = sanitizeInput(subject);
     // Use sanitizedMessage and sanitizedSubject for further processing.
     // This enhanced sanitization provides better protection but is not a complete solution for production environments.

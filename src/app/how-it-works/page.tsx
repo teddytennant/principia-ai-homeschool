@@ -168,14 +168,14 @@ export default function HowItWorks() {
                             {activeStep === 0 && (
                               <div>
                                 <p className="mb-2"><strong>Step 1:</strong> Student interacts with AI tutor.</p>
-                                <p className="mb-2"><strong>Step 2:</strong> AI asks probing questions like, "Why do you think this historical event had such a lasting impact?"</p>
+                                <p className="mb-2"><strong>Step 2:</strong> AI asks probing questions like, &quot;Why do you think this historical event had such a lasting impact?&quot;</p>
                                 <p><strong>Step 3:</strong> Student responds, and AI adapts follow-up questions to deepen understanding.</p>
                               </div>
                             )}
                             {activeStep === 1 && (
                               <div>
                                 <p className="mb-2"><strong>Step 1:</strong> Teacher uploads curriculum content.</p>
-                                <p className="mb-2"><strong>Step 2:</strong> AI analyzes material and aligns questions with lesson goals, e.g., "Let's explore how this concept applies to your current lesson on ecosystems."</p>
+                                <p className="mb-2"><strong>Step 2:</strong> AI analyzes material and aligns questions with lesson goals, e.g., &quot;Let&apos;s explore how this concept applies to your current lesson on ecosystems.&quot;</p>
                                 <p><strong>Step 3:</strong> Students receive personalized guidance based on the curriculum.</p>
                               </div>
                             )}

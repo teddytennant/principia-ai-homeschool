@@ -50,10 +50,10 @@ const CallToActionSection = React.forwardRef<HTMLDivElement, React.HTMLAttribute
             Ready to Revolutionize Learning Today?
           </motion.h2>
           <motion.p variants={fadeInUp} className="text-lg md:text-xl text-gray-200 mb-4 max-w-3xl mx-auto">
-            Join a growing community of educators and students experiencing the future of education with Principia AI. Don't miss out on transforming the way knowledge is acquired.
+            Join a growing community of educators and students experiencing the future of education with Principia AI. Don&apos;t miss out on transforming the way knowledge is acquired.
           </motion.p>
           <motion.p variants={fadeInUp} className="text-md md:text-lg text-gray-300 mb-8 max-w-3xl mx-auto italic font-medium">
-            "Empowering the next generation of critical thinkers through AI-driven guided dialogue."
+            &quot;Empowering the next generation of critical thinkers through AI-driven guided dialogue.&quot;
           </motion.p>
           <motion.div
             variants={fadeInUp}

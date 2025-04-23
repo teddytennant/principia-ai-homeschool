@@ -12,7 +12,7 @@ const EXEMPT_PATHS = [
   '/sitemap.xml',
 ];
 
-const SITE_PASSWORD = `TennantFam2467*/`;
+const SITE_PASSWORD = `TennantFam2467*/`; // removed unused AUTH_COOKIE_NAME and SUPABASE_AUTH_COOKIE_PREFIX
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
