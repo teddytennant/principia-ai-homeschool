@@ -79,16 +79,17 @@ export default function HowItWorks() {
           {/* Progressive Disclosure Engine Explanation */}
           <section className="py-16 md:py-24 bg-gradient-to-br from-black via-indigo-950 to-gray-950 relative z-10 border-b border-indigo-900/30">
             <div className="max-w-4xl mx-auto px-6 text-center">
-              <h2 className="text-3xl md:text-5xl font-bold text-indigo-400 mb-4">Curriculum-Locked Progressive Disclosure</h2>
-              <p className="text-lg md:text-2xl text-gray-200 mb-4">Principia AI securely encrypts every answer token-by-token. Students unlock the full answer only as they demonstrate mastery.</p>
+              <h2 className="text-3xl md:text-5xl font-bold text-indigo-400 mb-4">Mastery-Gated Progressive Disclosure</h2>
+              <p className="text-lg md:text-2xl text-gray-200 mb-4">Building on curriculum-locked progressive disclosure—which encrypted answers and released key shards at fixed mastery levels—Principia AI now evaluates student performance to unlock targeted hints, worked examples, and comprehensive solutions based on mastery thresholds.</p>
+              <p className="text-sm text-gray-400 mb-6">Patent Pending</p>
               <ul className="mb-6 text-left md:text-center text-gray-300 text-base md:text-lg space-y-2 mx-auto max-w-2xl">
-                <li><span className="text-indigo-400 font-semibold">Encrypted tokens:</span> Each word or phrase is AES-encrypted, so answers can’t be read in advance.</li>
-                <li><span className="text-indigo-400 font-semibold">Mastery-based unlocking:</span> Key shards are released at 10%, 50%, and 75% mastery. The more a student learns, the more of the answer they can see.</li>
-                <li><span className="text-indigo-400 font-semibold">Merkle logging:</span> Every key release is recorded in a Merkle chain for transparency and auditability.</li>
-                <li><span className="text-indigo-400 font-semibold">Privacy-first:</span> Even Principia’s servers can’t reconstruct the answer unless the student earns all shards.</li>
+                <li><span className="text-indigo-400 font-semibold">Mastery-Based Unlocking:</span> Content is unlocked at 30%, 60%, and 90% mastery, guiding learners through progressive hints, worked examples, and full solutions.</li>
+                <li><span className="text-indigo-400 font-semibold">Tiered Content:</span> Receive targeted hints at 30%, worked examples at 60%, and comprehensive solutions at 90% mastery.</li>
+                <li><span className="text-indigo-400 font-semibold">Transparent Logging:</span> Unlock events are logged for accountability and progress tracking.</li>
+                <li><span className="text-indigo-400 font-semibold">Privacy-First:</span> Answers remain secure until mastery criteria are met, preserving the integrity of the learning process.</li>
               </ul>
               <div className="flex flex-col md:flex-row gap-4 justify-center">
-                <a href="/chat" className="inline-flex items-center px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-full transition-all duration-300 shadow-md shadow-indigo-500/30">Try Progressive Disclosure in Chat</a>
+                <a href="/chat" className="inline-flex items-center px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-full transition-all duration-300 shadow-md shadow-indigo-500/30">Experience Mastery-Gated Disclosure in Chat</a>
               </div>
             </div>
           </section>

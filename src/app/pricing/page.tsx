@@ -1,37 +1,68 @@
-'use client'; // Use client for animations
+'use client'; // Use client for animations and Stripe interaction
 
 import React, { useState } from 'react';
-import Link from 'next/link';
+// Removed Link import as buttons now trigger checkout
 import { motion } from 'framer-motion';
 import { CheckCircle, X } from 'lucide-react';
+import { loadStripe, Stripe } from '@stripe/stripe-js'; // Import Stripe
 import { Button } from "@/components/ui/button"; // Standard button
 import { ButtonColorful } from "@/components/ui/button-colorful"; // Colorful button
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
+// Plan pricing (monthly/yearly)
+const PRICING = {
+  family: { monthly: 49, yearly: 499 }, // $49/mo or $499/yr
+  coop: { monthly: 179, yearly: 1799 }, // $179/mo or $1799/yr
+  individual: { monthly: 19, yearly: 199 }, // $19/mo or $199/yr
+};
+
+// --- Stripe Price IDs (REPLACE WITH YOUR ACTUAL IDs from Stripe Dashboard) ---
+const STRIPE_PRICE_IDS = {
+  family: { monthly: 'price_family_monthly_placeholder', yearly: 'price_family_yearly_placeholder' },
+  coop: { monthly: 'price_coop_monthly_placeholder', yearly: 'price_coop_yearly_placeholder' },
+  individual: { monthly: 'price_individual_monthly_placeholder', yearly: 'price_individual_yearly_placeholder' },
+};
+// --- End Stripe Price IDs ---
+
+const formatPrice = (amount: number) => `$${amount.toLocaleString()}`;
+
+// Load Stripe instance (outside component to avoid reloading)
+// Ensure NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is set in your .env.local
+const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  : Promise.resolve(null);
+
+
 // Pricing Card Component
 interface PricingCardProps {
+  planKey: 'family' | 'coop' | 'individual'; // Added key to identify plan
   planName: string;
   price: string;
   frequency?: string;
   description: string;
   features: string[];
   ctaText: string;
-  ctaHref: string;
+  // Removed ctaHref as it's handled by onClick now
   isFeatured?: boolean; // Optional flag for highlighting a plan
   isContact?: boolean; // Flag for contact button
+  onCheckout: (priceId: string) => void; // Callback for checkout
+  priceId: string; // Pass the relevant price ID
 }
 
-const PricingCard: React.FC<PricingCardProps> = ({
+const PricingCard: React.FC<PricingCardProps & { savings?: string }> = ({
+  planKey, // Destructure planKey
   planName,
   price,
-  frequency = "/ month",
+  frequency = "/month",
   description,
   features,
   ctaText,
-  ctaHref,
   isFeatured,
-  isContact
+  isContact,
+  savings,
+  onCheckout, // Destructure onCheckout
+  priceId // Destructure priceId
 }) => {
   const cardVariants = {
     hidden: { opacity: 1, y: 0 },
@@ -45,39 +76,48 @@ const PricingCard: React.FC<PricingCardProps> = ({
       }
     }
   };
-
   return (
     <motion.div
       variants={cardVariants}
       whileHover={{ 
-        scale: 1.02, 
-        boxShadow: "0 0 15px rgba(79, 70, 229, 0.5)",
+        scale: 1.04, 
+        boxShadow: "0 0 30px rgba(79, 70, 229, 0.4)",
         transition: { duration: 0.2 }
       }}
-      className={`border rounded-xl p-6 flex flex-col shadow-lg transition-all duration-300 ${isFeatured ? 'border-indigo-500 ring-2 ring-indigo-500/50 bg-gradient-to-b from-gray-900/40 to-indigo-900/20 shadow-xl shadow-indigo-500/30' : 'border-gray-700 bg-gray-900/70 shadow-md shadow-gray-800/30'}`}
+      className={`border rounded-2xl p-8 flex flex-col shadow-lg transition-all duration-300 ${isFeatured ? 'border-indigo-500 ring-2 ring-indigo-500/50 bg-gradient-to-b from-gray-900/40 to-indigo-900/20 shadow-xl shadow-indigo-500/30 scale-105 z-10' : 'border-gray-700 bg-gray-900/70 shadow-md shadow-gray-800/30'}`}
     >
-      <h3 className="text-xl font-semibold text-white mb-2 tracking-tight">{planName}</h3>
-      <p className="text-gray-400 mb-4 h-8 text-sm leading-relaxed">{description}</p>
-      <div className="mb-4">
-        <span className="text-3xl font-bold text-white">{price}</span>
-        {frequency && <span className="text-gray-400 text-xs ml-1">{frequency}</span>}
+      <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">{planName}</h3>
+      <p className="text-gray-400 mb-4 text-base leading-relaxed">{description}</p>
+      <div className="mb-4 flex flex-col items-center justify-center gap-1">
+        {frequency === '/year' ? (
+          <>
+            <span className="text-4xl font-bold text-white">{formatPrice(Math.round(Number(price.replace(/[^\d.]/g, ''))/12*100)/100)}/mo</span>
+            <span className="text-xs text-gray-400">billed yearly</span>
+          </>
+        ) : (
+          <span className="text-4xl font-bold text-white">{price}{frequency}</span>
+        )}
       </div>
-      <ul className="space-y-2 text-gray-300 mb-6 flex-grow">
-        {features.filter(feature => !feature.startsWith("*")).map((feature, i) => (
+      {savings && (
+        <div className="text-green-400 text-xs font-semibold mb-2 text-center">{savings}</div>
+      )}
+      <ul className="space-y-2 text-gray-300 mb-6 flex-grow text-left mx-auto max-w-xs">
+        {features.map((feature, i) => (
           <li key={i} className="flex items-start">
             <CheckCircle className="w-4 h-4 text-indigo-400 mr-2 flex-shrink-0 mt-0.5" />
             <span className="text-sm">{feature}</span>
           </li>
         ))}
       </ul>
-      {features.some(feature => feature.startsWith("*")) && (
-        <p className="text-gray-400 text-xs mt-2">{features.find(feature => feature.startsWith("*"))}</p>
-      )}
       {isContact ? (
         <ButtonColorful label={ctaText} className="w-full mt-auto py-3 text-base rounded-full shadow-md shadow-indigo-500/40 hover:shadow-indigo-500/60 transition-all duration-300" onClick={() => window.dispatchEvent(new CustomEvent('openContactModal'))} />
       ) : (
-        <Button asChild variant="outline" className="w-full mt-auto py-3 text-base bg-gray-800 hover:bg-gray-700 border-gray-600 text-white rounded-full transition-all duration-300">
-          <Link href={ctaHref}>{ctaText}</Link>
+        <Button
+          variant="outline"
+          className="w-full mt-auto py-3 text-base bg-indigo-600 hover:bg-indigo-700 border-none text-white rounded-full font-bold shadow-xl shadow-indigo-500/40 transition-all duration-300"
+          onClick={() => onCheckout(priceId)} // Call onCheckout with the specific priceId
+        >
+          {ctaText}
         </Button>
       )}
     </motion.div>
@@ -96,30 +136,92 @@ export default function PricingPage() {
     }
   };
 
+  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
+  const [isLoading, setIsLoading] = useState(false); // State for loading indicator
+  const [error, setError] = useState<string | null>(null); // State for errors
+
+  // Checkout handler function
+  const handleCheckout = async (priceId: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    if (!stripePromise) {
+      setError("Stripe is not configured correctly. Missing publishable key.");
+      setIsLoading(false);
+      return;
+    }
+
+    const stripe = await stripePromise;
+    if (!stripe) {
+      setError("Failed to initialize Stripe.");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // 1. Create a checkout session on your server
+      const response = await fetch('/api/checkout_sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ priceId }),
+      });
+
+      if (!response.ok) {
+        const { error: apiError } = await response.json();
+        throw new Error(apiError || 'Failed to create checkout session.');
+      }
+
+      const { sessionId } = await response.json();
+
+      // 2. Redirect to Stripe Checkout
+      const { error: stripeError } = await stripe.redirectToCheckout({ sessionId });
+
+      if (stripeError) {
+        console.error("Stripe Redirect Error:", stripeError);
+        setError(stripeError.message || "Failed to redirect to Stripe.");
+      }
+      // If redirect is successful, the user leaves this page.
+      // If they cancel, they are redirected back to the cancelUrl (pricing page).
+      // If successful, they are redirected to the successUrl (home page).
+
+    } catch (err) {
+      console.error("Checkout Error:", err);
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+    } finally {
+      setIsLoading(false); // Ensure loading is set to false even on error
+    }
+  };
+
+
   const plans = [
     {
+      planKey: 'family' as const, // Add planKey
       planName: "Family Plan",
-      price: "$29",
-      frequency: "/ month",
-      description: "Perfect for homeschooling families. One subscription covers all your children.",
+      price: formatPrice(billing === 'monthly' ? PRICING.family.monthly : PRICING.family.yearly),
+      frequency: billing === 'monthly' ? "/month" : "/year",
+      description: "One subscription covers your whole family. Best for up to 5 learners.",
       features: [
-        "Access for up to 5 learners",
+        "Up to 5 learners included",
         "Personalized AI tutoring for each child",
         "Parent dashboard & progress tracking",
         "Flexible curriculum options",
         "Unlimited Socratic Tutor sessions",
-        "Priority support for families",
+        "Priority family support",
       ],
-      ctaText: "Start Family Plan",
-      ctaHref: "/signup",
+      savings: billing === 'yearly' ? `Save $89/year` : undefined,
+      ctaText: isLoading ? "Processing..." : `Start Family Plan`, // Update CTA text when loading
+      // Removed ctaHref
       isFeatured: true,
       isContact: false,
     },
     {
+      planKey: 'coop' as const, // Add planKey
       planName: "Co-op Plan",
-      price: "$99",
-      frequency: "/ month",
-      description: "Empower your homeschool co-op with collaborative tools and group management.",
+      price: formatPrice(billing === 'monthly' ? PRICING.coop.monthly : PRICING.coop.yearly),
+      frequency: billing === 'monthly' ? "/month" : "/year",
+      description: "Empower your homeschool co-op with group management and collaboration.",
       features: [
         "Up to 25 learners",
         "Group assignments & projects",
@@ -128,15 +230,17 @@ export default function PricingPage() {
         "Unlimited Socratic Tutor sessions",
         "Priority onboarding for co-ops",
       ],
-      ctaText: "Start Co-op Plan",
-      ctaHref: "/signup",
+      savings: billing === 'yearly' ? `Save $349/year` : undefined,
+      ctaText: isLoading ? "Processing..." : `Start Co-op Plan`, // Update CTA text when loading
+      // Removed ctaHref
       isFeatured: false,
       isContact: false,
     },
     {
+      planKey: 'individual' as const, // Add planKey
       planName: "Individual Learner",
-      price: "$12",
-      frequency: "/ month",
+      price: formatPrice(billing === 'monthly' ? PRICING.individual.monthly : PRICING.individual.yearly),
+      frequency: billing === 'monthly' ? "/month" : "/year",
       description: "Affordable access for solo homeschoolers or supplemental learning.",
       features: [
         "Single learner access",
@@ -145,12 +249,14 @@ export default function PricingPage() {
         "Unlimited Socratic Tutor sessions",
         "Standard support",
       ],
-      ctaText: "Start Individual Plan",
-      ctaHref: "/signup",
+      savings: billing === 'yearly' ? `Save $29/year` : undefined,
+      ctaText: isLoading ? "Processing..." : `Start Individual Plan`, // Update CTA text when loading
+      // Removed ctaHref
       isFeatured: false,
       isContact: false,
     },
   ];
+
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -167,7 +273,7 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-indigo-900/30 text-gray-100 py-20 md:py-28 px-4 overflow-hidden h-screen w-screen fixed top-0 left-0">
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-indigo-900/30 text-gray-100 py-20 md:py-28 px-4">
       <div className="container mx-auto max-w-5xl">
         <motion.div
           initial={{ opacity: 1, y: 0 }}
@@ -175,18 +281,46 @@ export default function PricingPage() {
           transition={{ duration: 0 }}
           className="text-center mb-10"
         >
-          <h1 className="text-3xl md:text-4xl font-bold mb-4 text-white tracking-tight">Flexible Pricing</h1>
-          <p className="text-lg text-gray-300 max-w-xl mx-auto">Contact us to work out a plan that fits your needs.</p>
+          <h1 className="text-3xl md:text-4xl font-bold mb-4 text-white tracking-tight">Simple, Transparent Pricing</h1>
+          <p className="text-lg text-gray-300 max-w-xl mx-auto mb-6">Choose the plan that fits your homeschool journey. Save up to 20% with yearly billing!</p>
+          {error && ( // Display error messages
+            <div className="mb-4 text-center text-red-400 text-sm font-medium bg-red-500/10 border border-red-500/20 rounded-md p-2 max-w-md mx-auto">
+              {error}
+            </div>
+          )}
+          <div className="inline-flex items-center justify-center bg-gray-800 rounded-full px-2 py-1 mb-2">
+            <button
+              className={`px-4 py-2 rounded-full font-medium transition-all duration-200 ${billing==='monthly' ? 'bg-indigo-600 text-white' : 'text-gray-300'}`}
+              onClick={() => setBilling('monthly')}
+            >
+              Monthly
+            </button>
+            <button
+              className={`px-4 py-2 rounded-full font-medium transition-all duration-200 ${billing==='yearly' ? 'bg-indigo-600 text-white' : 'text-gray-300'}`}
+              onClick={() => setBilling('yearly')}
+            >
+              Yearly <span className="ml-1 text-xs text-green-400">(Save!)</span>
+            </button>
+          </div>
         </motion.div>
         <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-1 gap-10 items-stretch max-w-2xl mx-auto"
+          className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch"
         >
-          {plans.map((plan) => (
-            <PricingCard key={plan.planName} {...plan} />
-          ))}
+          {plans.map((plan) => {
+            // Determine the correct price ID based on selected billing cycle
+            const priceId = STRIPE_PRICE_IDS[plan.planKey][billing];
+            return (
+              <PricingCard
+                key={plan.planName}
+                {...plan}
+                priceId={priceId} // Pass the determined price ID
+                onCheckout={handleCheckout} // Pass the checkout handler
+              />
+            );
+          })}
         </motion.div>
       </div>
 

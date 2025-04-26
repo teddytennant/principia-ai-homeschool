@@ -20,7 +20,10 @@ export function Header() {
             <Button variant="secondary" size="sm">Student Sign In</Button>
           </Link>
           <Link href="/signin/teacher">
-            <Button variant="secondary" size="sm">Teacher Sign In</Button>
+            <Button variant="secondary" size="sm">Parent Sign In</Button>
+          </Link>
+          <Link href="/signup">
+            <Button variant="outline" size="sm">Sign Up</Button>
           </Link>
         </div>
       </div>

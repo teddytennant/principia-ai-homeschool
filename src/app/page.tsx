@@ -115,19 +115,20 @@ export default function Home() {
                 <source src="/videos/ai-innovation.gif" type="video/mp4" />
               </video>
             </div>
-            {/* Curriculum-Locked Progressive Disclosure Section */}
+            {/* Mastery-Gated Progressive Disclosure Section */}
             <section className="py-12 md:py-20 bg-gradient-to-br from-black via-indigo-950 to-gray-950 relative z-10 border-b border-indigo-900/30">
               <div className="max-w-4xl mx-auto px-6 text-center">
-                <h2 className="text-3xl md:text-5xl font-bold text-indigo-400 mb-4">Curriculum-Locked Progressive Disclosure</h2>
-                <p className="text-lg md:text-2xl text-gray-200 mb-4">Principia AI uses state-of-the-art cryptography to lock each AI-generated answer behind encrypted tokens.</p>
+                <h2 className="text-3xl md:text-5xl font-bold text-indigo-400 mb-4">Mastery-Gated Progressive Disclosure</h2>
+                <p className="text-lg md:text-2xl text-gray-200 mb-4">Principia AI unlocks content progressively based on student mastery, guiding learners through hints, examples, and full solutions.</p>
+                <p className="text-sm text-gray-400 mb-6">Patent Pending</p>
                 <ul className="mb-6 text-left md:text-center text-gray-300 text-base md:text-lg space-y-2 mx-auto max-w-2xl">
-                  <li><span className="text-indigo-400 font-semibold">Encrypted answers:</span> Each token is AES-encrypted and only unlocked as students demonstrate mastery.</li>
-                  <li><span className="text-indigo-400 font-semibold">Mastery-based unlocking:</span> Key shards are released at 10%, 50%, and 75% mastery, so students earn deeper access as they learn.</li>
-                  <li><span className="text-indigo-400 font-semibold">Merkle logging:</span> Every key release is logged on an auditable Merkle chain for full transparency and accountability.</li>
-                  <li><span className="text-indigo-400 font-semibold">Privacy-first:</span> Even our servers can’t read the full answer unless the student achieves mastery.</li>
+                  <li><span className="text-indigo-400 font-semibold">Mastery-Based Unlocking:</span> Content is unlocked at 30%, 60%, and 90% master for specific standards, ensuring students earn deeper access as they learn, making sure that there are no gaps in their knowledge.</li>
+                  <li><span className="text-indigo-400 font-semibold">Tiered Content:</span> Receive targeted hints, worked examples, and comprehensive solutions corresponding to your mastery level.</li>
+                  <li><span className="text-indigo-400 font-semibold">Transparent Logging:</span> Each unlock event is logged for accountability and progress tracking.</li>
+                  <li><span className="text-indigo-400 font-semibold">Privacy-First:</span> Answers remain secure until mastery criteria are met, preserving the integrity of the learning process.</li>
                 </ul>
                 <div className="flex flex-col md:flex-row gap-4 justify-center">
-                  <a href="/how-it-works" className="inline-flex items-center px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-full transition-all duration-300 shadow-md shadow-indigo-500/30">See How Progressive Disclosure Works</a>
+                  <a href="/how-it-works" className="inline-flex items-center px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-full transition-all duration-300 shadow-md shadow-indigo-500/30">See How Mastery-Gated Disclosure Works</a>
                 </div>
               </div>
             </section>
@@ -265,65 +266,7 @@ export default function Home() {
               <ComparisonSection />
             </motion.div>
           </motion.div>
-          {/* Showcase/Testimonial Section with advanced design */}
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={sectionVariants}
-            className="py-20 md:py-32 bg-gray-900/98 relative overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 via-gray-900/15 to-transparent opacity-50 z-0 pointer-events-none animate-gradient-shift-slow"></div>
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(79,70,229,0.1)_1px,transparent_1px),linear-gradient(to_bottom,rgba(79,70,229,0.1)_1px,transparent_1px)] bg-[size:30px_30px] opacity-20 z-0 pointer-events-none animate-grid-shift-slow"></div>
-            <motion.div 
-              className="absolute top-10 left-10 w-16 h-16 bg-indigo-500/20 rounded-full blur-xl z-0"
-              initial={{ x: -50, y: -50, opacity: 0.3 }}
-              animate={{ x: 100, y: 100, opacity: 0.6 }}
-              transition={{ duration: 15, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
-            >
-            </motion.div>
-            <motion.div 
-              className="absolute bottom-20 right-20 w-20 h-20 bg-purple-500/20 rounded-full blur-xl z-0"
-              initial={{ x: 50, y: 50, opacity: 0.3 }}
-              animate={{ x: -100, y: -100, opacity: 0.6 }}
-              transition={{ duration: 20, repeat: Infinity, repeatType: "reverse", ease: "easeInOut", delay: 2 }}
-            >
-            </motion.div>
-            <motion.div
-              ref={testimonialRef}
-              initial="hidden"
-              animate={testimonialInView ? "visible" : "hidden"}
-              variants={staggerChildren}
-              className="max-w-5xl mx-auto px-4 text-center relative z-10"
-            >
-              <motion.h2 variants={fadeInUp} className="text-3xl md:text-5xl font-bold text-white mb-12">
-                Transforming Education Worldwide
-              </motion.h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <motion.div 
-                  variants={fadeInUp}
-                  className="bg-gray-800/80 p-8 rounded-2xl border border-indigo-700/30 shadow-xl shadow-indigo-900/20"
-                >
-                <p className="text-gray-300 italic text-lg mb-4">&quot;Principia AI has revolutionized how my students approach learning. The depth of engagement is unparalleled.&quot;</p>
-                <p className="text-indigo-300 font-semibold">- Dr. Sarah Mitchell, Ed.D., High School Principal</p>
-                </motion.div>
-                <motion.div 
-                  variants={fadeInUp}
-                  className="bg-gray-800/80 p-8 rounded-2xl border border-indigo-700/30 shadow-xl shadow-indigo-900/20"
-                >
-                <p className="text-gray-300 italic text-lg mb-4">&quot;As a student, I feel challenged and supported. It&apos;s like having a personal tutor who understands me.&quot;</p>
-                <p className="text-indigo-300 font-semibold">- Emily Chen, 10th Grade Student</p>
-                </motion.div>
-              </div>
-              <motion.div 
-                variants={fadeInUp}
-                className="mt-12 bg-gradient-to-br from-indigo-900/70 to-gray-900/80 p-6 rounded-xl border border-indigo-700/40 shadow-lg shadow-indigo-900/10"
-              >
-                <h3 className="text-xl font-bold text-white mb-4">Advanced AI Technology</h3>
-                <p className="text-gray-300">Our platform leverages state-of-the-art machine learning algorithms, based off of vast educational datasets, to deliver personalized learning experiences with unprecedented precision.</p>
-              </motion.div>
-            </motion.div>
-          </motion.div>
+
           {/* Call to Action Section with impactful background */}
           <motion.div 
             ref={ctaRef}
@@ -354,8 +297,15 @@ export default function Home() {
                   Empower Your Homeschool Journey
                 </motion.h2>
                 <motion.p variants={fadeInUp} className="text-lg md:text-xl text-gray-300 mb-6 max-w-3xl mx-auto">
-                  Principia AI is designed for homeschooling families—unlock personalized, engaging, and flexible learning for every child. Support your family's unique educational path with our powerful AI tools.
+                  Principia AI is crafted for homeschooling families, offering a transformative educational experience. Unlock personalized AI-driven learning plans tailored to each child's needs, manage student accounts as a parent with ease, and enjoy flexible curriculum options that adapt to your family's unique educational path.
                 </motion.p>
+                <motion.div variants={fadeInUp} className="mb-8">
+                  <ul className="text-gray-300 text-base md:text-lg space-y-2 max-w-2xl mx-auto">
+                    <li><span className="text-indigo-400 font-semibold">Personalized Learning:</span> AI tailors questions and content to each student's learning style and pace.</li>
+                    <li><span className="text-indigo-400 font-semibold">Parent Management:</span> After payment, parents can create and manage student accounts, setting usernames and passwords.</li>
+                    <li><span className="text-indigo-400 font-semibold">Flexible Curriculum:</span> Adapt lessons to fit your homeschooling goals with customizable subjects and progress tracking.</li>
+                  </ul>
+                </motion.div>
                 <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row justify-center gap-4">
                   <motion.div 
                     whileHover={{ 

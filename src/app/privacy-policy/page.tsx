@@ -1,143 +1,72 @@
-import { Metadata } from "next";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-
-export const metadata: Metadata = {
-  title: "Privacy Policy | Principia AI",
-  description: "Our commitment to protecting your privacy and data.",
-};
+import React from 'react';
+import { Header } from '@/components/layout/Header';
+import { Footer } from '@/components/layout/Footer';
 
 export default function PrivacyPolicyPage() {
   return (
-    <div className="container mx-auto py-12 px-4 md:px-6 max-w-4xl">
-      <h1 className="text-4xl font-bold mb-8 text-center text-white">Privacy Policy</h1>
-      <p className="text-sm text-gray-100 mb-6 text-center">Last updated: April 13, 2025</p>
-      
-      <div className="space-y-8">
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-white">Introduction</h2>
-          <p className="text-gray-100 leading-relaxed">
-            At Principia AI, we are committed to protecting your privacy and ensuring the security of your personal information. 
-            This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our services.
-          </p>
-        </section>
-        
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-white">Information We Collect</h2>
-          <p className="text-gray-100 leading-relaxed">
-            We may collect the following types of information:
-          </p>
-          <ul className="list-disc pl-5 space-y-2 text-gray-100">
-            <li>Personal identification information (name, email address, etc.)</li>
-            <li>Educational data and curriculum information</li>
-            <li>Usage data and analytics about how you interact with our platform</li>
-            <li>Technical information such as IP address, browser type, and device information</li>
+    <div className="flex flex-col min-h-screen bg-black text-gray-100">
+      <Header />
+      <main className="flex-grow container mx-auto px-4 py-16 md:py-24 max-w-3xl">
+        <h1 className="text-3xl font-bold text-white mb-6">Privacy Policy</h1>
+        <div className="prose prose-invert max-w-none text-gray-300 space-y-4">
+          <p>Last Updated: April 24, 2025</p>
+
+          <p>Principia AI Homeschool ("us", "we", or "our") operates the Principia AI Homeschool website and application (the "Service"). This page informs you of our policies regarding the collection, use, and disclosure of personal data when you use our Service and the choices you have associated with that data.</p>
+
+          <h2 className="text-xl font-semibold text-white pt-4">1. Information Collection and Use</h2>
+          <p>We collect several different types of information for various purposes to provide and improve our Service to you.</p>
+          <p>Types of Data Collected:</p>
+          <ul>
+            <li><strong>Personal Data:</strong> While using our Service, we may ask you to provide us with certain personally identifiable information that can be used to contact or identify you ("Personal Data"). This may include, but is not limited to: Email address, First name and last name, Usage Data.</li>
+            <li><strong>Usage Data:</strong> We may also collect information on how the Service is accessed and used ("Usage Data"). This Usage Data may include information such as your computer's Internet Protocol address (e.g. IP address), browser type, browser version, the pages of our Service that you visit, the time and date of your visit, the time spent on those pages, unique device identifiers and other diagnostic data.</li>
+            <li><strong>Student Data:</strong> For student users, we may collect information related to their learning progress, interactions with the AI tutor, and curriculum engagement. This data is used solely for educational purposes within the Service.</li>
           </ul>
-        </section>
-        
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-white">How We Use Your Information</h2>
-          <p className="text-gray-100 leading-relaxed">
-            We use the collected information to:
-          </p>
-          <ul className="list-disc pl-5 space-y-2 text-gray-100">
-            <li>Provide and improve our educational services</li>
-            <li>Personalize learning experiences</li>
-            <li>Communicate with you about updates and features</li>
-            <li>Analyze usage patterns to enhance platform functionality</li>
-            <li>Comply with legal obligations</li>
+
+          <h2 className="text-xl font-semibold text-white pt-4">2. Use of Data</h2>
+          <p>Principia AI Homeschool uses the collected data for various purposes:</p>
+          <ul>
+            <li>To provide and maintain the Service</li>
+            <li>To notify you about changes to our Service</li>
+            <li>To allow you to participate in interactive features of our Service when you choose to do so</li>
+            <li>To provide customer care and support</li>
+            <li>To provide analysis or valuable information so that we can improve the Service</li>
+            <li>To monitor the usage of the Service</li>
+            <li>To detect, prevent and address technical issues</li>
+            <li>To personalize the learning experience</li>
           </ul>
-        </section>
-        
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-white">Data Sharing and Disclosure</h2>
-          <p className="text-gray-100 leading-relaxed">
-            We do not sell your personal information. We may share information with:
-          </p>
-          <ul className="list-disc pl-5 space-y-2 text-gray-100">
-            <li>Service providers who assist in operating our platform</li>
-            <li>Educational institutions when required for your learning program</li>
-            <li>Legal authorities when required by law or to protect our rights</li>
+
+          <h2 className="text-xl font-semibold text-white pt-4">3. Data Transfer</h2>
+          <p>Your information, including Personal Data, may be transferred to — and maintained on — computers located outside of your state, province, country or other governmental jurisdiction where the data protection laws may differ than those from your jurisdiction.</p>
+          <p>Your consent to this Privacy Policy followed by your submission of such information represents your agreement to that transfer.</p>
+
+          <h2 className="text-xl font-semibold text-white pt-4">4. Data Disclosure</h2>
+          <p>Principia AI Homeschool may disclose your Personal Data in the good faith belief that such action is necessary to:</p>
+          <ul>
+            <li>To comply with a legal obligation</li>
+            <li>To protect and defend the rights or property of Principia AI Homeschool</li>
+            <li>To prevent or investigate possible wrongdoing in connection with the Service</li>
+            <li>To protect the personal safety of users of the Service or the public</li>
+            <li>To protect against legal liability</li>
           </ul>
-        </section>
-        
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-white">Data Security</h2>
-          <p className="text-gray-100 leading-relaxed">
-            We implement industry-standard security measures to protect your data from unauthorized access, 
-            alteration, disclosure, or destruction. However, no method of transmission over the Internet 
-            is 100% secure, and we cannot guarantee absolute security.
-          </p>
-        </section>
-        
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-white">Your Rights and Choices</h2>
-          <p className="text-gray-100 leading-relaxed">
-            Depending on your location, you may have rights regarding your personal data, including:
-          </p>
-          <ul className="list-disc pl-5 space-y-2 text-gray-100">
-            <li>Access to the personal information we hold about you</li>
-            <li>Request correction or deletion of your data</li>
-            <li>Object to processing of your data</li>
-            <li>Request data portability</li>
-          </ul>
-          <p className="text-gray-100 leading-relaxed mt-2">
-            To exercise these rights, please contact us using the information below.
-          </p>
-        </section>
-        
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-white">Children&apos;s Privacy</h2>
-          <p className="text-gray-100 leading-relaxed">
-            Our services may be used by children under the age of 13 with parental consent. 
-            We comply with the Children&apos;s Online Privacy Protection Act (COPPA) and other relevant laws. 
-            If you are a parent or guardian and believe your child has provided us with personal information, 
-            please contact us immediately.
-          </p>
-        </section>
-        
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-white">Cookies and Tracking Technologies</h2>
-          <p className="text-gray-100 leading-relaxed">
-            We use cookies and similar technologies to enhance your experience, analyze usage, 
-            and provide personalized content. You can manage cookie preferences through your browser settings.
-          </p>
-        </section>
-        
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-white">International Data Transfers</h2>
-          <p className="text-gray-100 leading-relaxed">
-            Your information may be transferred to and processed in countries other than your own. 
-            We ensure appropriate safeguards are in place to protect your data during such transfers.
-          </p>
-        </section>
-        
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-white">Changes to This Policy</h2>
-          <p className="text-gray-100 leading-relaxed">
-            We may update this Privacy Policy from time to time. We will notify you of significant changes 
-            by posting the new policy on this page with an updated effective date. If you have any questions about this Privacy Policy, please contact us at hello@principia-ai.com or write to us at Principia AI, 123 Learning Lane, Knowledge City, USA. We&#39;re here to help you understand your rights and how your data is used.
-          </p>
-        </section>
-        
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-white">Contact Us</h2>
-          <p className="text-gray-100 leading-relaxed">
-            If you have questions or concerns about this Privacy Policy or our data practices, 
-            please contact us at:
-          </p>
-          <p className="text-gray-100 mt-2">
-            Email: privacy@principia-ai.com<br />
-            Address: Principia AI, 123 Education Lane, Suite 456, San Francisco, CA 94105
-          </p>
-        </section>
-      </div>
-      
-      <div className="mt-12 text-center">
-        <Link href="/">
-          <Button variant="outline">Return to Home</Button>
-        </Link>
-      </div>
+
+          <h2 className="text-xl font-semibold text-white pt-4">5. Data Security</h2>
+          <p>The security of your data is important to us, but remember that no method of transmission over the Internet, or method of electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your Personal Data, we cannot guarantee its absolute security.</p>
+
+          <h2 className="text-xl font-semibold text-white pt-4">6. Service Providers</h2>
+          <p>We may employ third party companies and individuals to facilitate our Service ("Service Providers"), to provide the Service on our behalf, to perform Service-related services or to assist us in analyzing how our Service is used. These third parties have access to your Personal Data only to perform these tasks on our behalf and are obligated not to disclose or use it for any other purpose.</p>
+
+          <h2 className="text-xl font-semibold text-white pt-4">7. Children's Privacy</h2>
+          <p>Our Service addresses users under the age of 18 ("Children"). We collect personally identifiable information from Children as described in Section 1. This information is used solely for educational purposes within the Service and is not shared with third parties except as necessary to provide the Service (e.g., cloud hosting providers) or as required by law. Parents or guardians can review their child's personal information, direct us to delete it, and refuse to allow any further collection or use of the child's information.</p>
+
+          <h2 className="text-xl font-semibold text-white pt-4">8. Changes to This Privacy Policy</h2>
+          <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page. You are advised to review this Privacy Policy periodically for any changes.</p>
+
+          <h2 className="text-xl font-semibold text-white pt-4">9. Contact Us</h2>
+          <p>If you have any questions about this Privacy Policy, please contact us.</p>
+          <p><strong>Legal Advice Disclaimer:</strong> The information provided in this Policy is not legal advice. You should consult with a qualified legal professional for advice specific to your situation.</p>
+        </div>
+      </main>
+      <Footer />
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import sss from 'shamirs-secret-sharing';
+import { getContent } from '@/lib/content-unlocker';
+import { nextThreshold } from '@/lib/mgpd';
 
 // Placeholder values - ideally load from env vars
 
@@ -280,266 +282,23 @@ const checkAndUpdateTokenUsage = async (inputText: string, outputText: string): 
 };
 
 export async function POST(req: NextRequest) {
-  // Move API Key check inside the function
-  if (!process.env.OPENROUTER_API_KEY) {
-    console.error('ERROR: Missing critical environment configuration for AI service');
-    // Return a generic error response to avoid exposing server configuration details
-    return NextResponse.json({ error: 'Server error occurred. Please try again later.' }, { status: 500 });
-  }
-  console.log("API route received POST request"); // Log request entry
-  try {
-    const body = await req.json();
-    // Destructure history along with message and subject
-    const { message, subject, history } = body; 
-    // Add basic validation for history (optional, but good practice)
-    const chatHistory = Array.isArray(history) ? history : []; 
-    console.log("Request body:", { message, subject, history: chatHistory }); // Log parsed body, including history
+  const { learner_id, topic_id, question, correct, time_ms, hint_count } = await req.json();
 
-    if (!message || !subject) {
-        console.error('Validation Error: Missing message or subject', body);
-        return NextResponse.json({ error: 'Message and subject are required' }, { status: 400 });
-    }
+  const masteryRes = await fetch(`${process.env.MASTERY_ENGINE_URL}/mastery/evaluate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ learner_id, topic_id, correct, time_ms, hint_count }),
+  });
+  const { score, tier } = await masteryRes.json();
 
-    // Enforce a character limit of 2000 for the message
-    const characterLimit = 2000;
-    if (message.length > characterLimit) {
-        console.error('Validation Error: Message exceeds character limit', { length: message.length, limit: characterLimit });
-        return NextResponse.json({ error: 'Your message is too long. Please keep it under 2000 characters.' }, { status: 400 });
-    }
+  const contentResponse = await getContent(question, tier);
+  const content = contentResponse.choices[0].message.content;
 
-    // Enhanced input sanitization to prevent injection attacks or malicious content.
-    // This uses a comprehensive set of regex patterns to strip potentially harmful content from 'message' and 'subject'.
-    // Note: This is still a temporary measure and should be replaced with a robust library like sanitize-html or DOMPurify (server-side compatible) for production use.
-    const sanitizeInput = (input: string): string => {
-      if (!input) return '';
-      // Remove HTML tags and inline scripts
-      let sanitized = input.replace(/<[^>]*>/g, '');
-      // Remove JavaScript event handlers and script content
-      sanitized = sanitized.replace(/on\w+\s*=\s*['"][^'"]*['"]/gi, '');
-      sanitized = sanitized.replace(/javascript\s*:[^'"]*/gi, '');
-      // Remove potentially malicious attributes
-      sanitized = sanitized.replace(/style\s*=\s*['"][^'"]*['"]/gi, '');
-      // Remove special characters except basic punctuation and whitespace
-      sanitized = sanitized.replace(/[^\w\s.,!?()-]/g, '');
-      // Prevent SQL injection by removing common SQL keywords and patterns (basic protection)
-      sanitized = sanitized.replace(/\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|UNION|WHERE|FROM|JOIN|INNER|OUTER|LEFT|RIGHT|--|;)\b/gi, '');
-      // Prevent command injection by removing shell commands and special characters
-      sanitized = sanitized.replace(/[`$|&;()<>]/g, '');
-      // Limit consecutive whitespace to single space
-      sanitized = sanitized.replace(/\s+/g, ' ');
-      return sanitized.trim();
-    };
+  await supabase.from('audit_log').insert({ learner_id, topic_id, tier, score });
 
-    const sanitizedSubject = sanitizeInput(subject);
-    // Use sanitizedMessage and sanitizedSubject for further processing.
-    // This enhanced sanitization provides better protection but is not a complete solution for production environments.
-
-    // Get teacher settings from cookies
-    const settings = await getTeacherSettings();
-    console.log("Teacher settings:", settings);
-
-    // Check if AI is disabled
-    if (!settings.isAiEnabled) {
-      return NextResponse.json({ 
-        content: "The AI assistant is currently disabled by your teacher. Please try again later or contact your teacher for assistance." 
-      });
-    }
-
-    // Generate system prompt based on settings
-    const systemPrompt = generateSystemPrompt(sanitizedSubject, settings);
-    
-// Add curriculum context if available
-    const curriculumContext = formatCurriculumContext(settings.curriculum, subject, settings.subjects || [{ id: 'general', name: 'General' }]);
-    const fullSystemPrompt = systemPrompt + curriculumContext;
-    
-    console.log("Using System Prompt:", fullSystemPrompt); // Log the system prompt
-
-    // Rough estimate of input text for token limit check (before API call)
-    const inputTextForCheck = fullSystemPrompt + message + JSON.stringify(chatHistory);
-    
-    // Log the size of curriculum data for debugging
-    console.log("Curriculum data size:", settings.curriculum.length, "items");
-    if (settings.curriculum.length > 0) {
-      settings.curriculum.forEach((item: { name: string; content: string }, index: number) => {
-        console.log(`Curriculum item ${index + 1}: ${item.name}, Content length: ${item.content.length} characters`);
-      });
-    }
-    console.log("Additional context length:", settings.additionalContext.length, "characters");
-
-    // Call OpenRouter API with Gemini 2.0 Flash
-    console.log("Calling OpenRouter API (Gemini 2.0 Flash)...");
-    const completion = await openrouter.chat.completions.create({
-      model: "google/gemini-flash-1.5", // Updated to Gemini 2.0 Flash
-      messages: [
-        { role: "system", content: fullSystemPrompt },
-        // Spread the received chat history here
-        ...chatHistory, 
-        // Add the latest user message
-        { role: "user", content: message },
-      ],
-      temperature: 0.7,
-      // Removed extra_headers due to TypeScript type conflicts.
-      // These headers are optional for OpenRouter ranking.
-    });
-    console.log("OpenRouter API response received."); // Log successful API call
-
-    const assistantResponse = completion.choices[0]?.message?.content;
-
-    if (!assistantResponse) {
-      console.error('AI Service Error: No response content received from service.');
-      return NextResponse.json({ error: 'Server error occurred. Please try again later.' }, { status: 500 });
-    }
-
-    // --- BEGIN PROGRESSIVE DISCLOSURE ENGINE ---
-    // Inputs: assistantResponse (string), mastery_score (from body), curriculum_tag (from subject)
-    const { mastery_score = 0, curriculum_tag = subject, student_id: studentIdOverride } = body;
-    const studentId = studentIdOverride || await getStudentId();
-
-    // 1. Tokenize the assistant response (simple whitespace split for demo; replace with real tokenizer for production)
-    const tokens = assistantResponse.split(/(\s+)/); // keep whitespace tokens for correct reconstruction
-
-    // 2. Generate a random AES key
-    const aesKey = crypto.randomBytes(32); // 256-bit key
-    const iv = crypto.randomBytes(16); // 128-bit IV
-
-    // 3. Encrypt each token separately
-    const ciphertexts = tokens.map(token => {
-      const cipher = crypto.createCipheriv('aes-256-cbc', aesKey, iv);
-      let encrypted = cipher.update(token, 'utf8', 'base64');
-      encrypted += cipher.final('base64');
-      return encrypted;
-    });
-
-    // 4. Split the AES key into 3 shards (2 of 3 needed to reconstruct)
-    const shards = sss.split(aesKey, { shares: 3, threshold: 2 });
-    // Convert shards to base64 for transport
-    const shardsBase64 = shards.map(shard => shard.toString('base64'));
-
-    // 5. Determine which shards to release based on mastery_score
-    const unlocked_shards = [];
-    if (mastery_score >= 0.10) unlocked_shards.push(1);
-    if (mastery_score >= 0.50) unlocked_shards.push(2);
-    if (mastery_score >= 0.75) unlocked_shards.push(3);
-    // Only send the shards the student is eligible for
-    const released_shards = unlocked_shards.map(idx => ({ idx, shard: shardsBase64[idx-1] }));
-
-    // 6. Log every shard release in Supabase Merkle log
-    // Fetch previous hash for this student+curriculum_tag
-    let prev_hash = null;
-    let lastLog = null;
-    try {
-      const { data: logs, error: logErr } = await supabase
-        .from('shard_release_log')
-        .select('*')
-        .eq('student_id', studentId)
-        .eq('curriculum_tag', curriculum_tag)
-        .order('timestamp', { ascending: false })
-        .limit(1);
-      if (!logErr && logs && logs.length > 0) {
-        prev_hash = logs[0].merkle_hash;
-        lastLog = logs[0];
-      }
-    } catch (err) { console.warn('Merkle log fetch error', err); }
-
-    const now = new Date().toISOString();
-    for (const idx of unlocked_shards) {
-      // Merkle hash: hash of (student_id + curriculum_tag + idx + now + prev_hash)
-      const dataToHash = `${studentId}|${curriculum_tag}|${idx}|${now}|${prev_hash || ''}`;
-      const merkle_hash = crypto.createHash('sha256').update(dataToHash).digest('hex');
-      // Insert log
-      await supabase.from('shard_release_log').insert({
-        student_id: studentId,
-        curriculum_tag,
-        released_shard: idx,
-        merkle_hash,
-        prev_hash,
-        timestamp: now
-      });
-      prev_hash = merkle_hash;
-    }
-
-    // 7. Return ciphertext, unlocked_shards, and curriculum_tag
-    return NextResponse.json({
-      ciphertext: ciphertexts,
-      iv: iv.toString('base64'),
-      unlocked_shards: released_shards, // [{idx, shard}]
-      curriculum_tag,
-      tokens_length: tokens.length
-    });
-    // --- END PROGRESSIVE DISCLOSURE ENGINE ---
-
-    // Save chat messages to Supabase
-    // (old logic moved below progressive disclosure)
-    // const studentId = await getStudentId();
-    const chatId = req.headers.get('X-Chat-ID') || uuidv4(); // Use a chat ID from header if provided, else generate new
-    const userMessage = { role: "user", content: message };
-    const aiMessage = { role: "assistant", content: assistantResponse };
-
-    try {
-      const { error: userMsgError } = await supabase.from('chat_messages').insert({
-        chat_id: chatId,
-        student_id: studentId,
-        role: userMessage.role,
-        content: userMessage.content,
-        subject: subject,
-      });
-      if (userMsgError) {
-        console.error('Error saving user message to Supabase:', userMsgError.message);
-      }
-
-      const { error: aiMsgError } = await supabase.from('chat_messages').insert({
-        chat_id: chatId,
-        student_id: studentId,
-        role: aiMessage.role,
-        content: aiMessage.content,
-        subject: subject,
-      });
-      if (aiMsgError) {
-        console.error('Error saving AI message to Supabase:', aiMsgError.message);
-      }
-
-      // Save chat metadata if it's a new chat
-      if (req.headers.get('X-Chat-ID') === null) {
-        const { error: chatError } = await supabase.from('chats').insert({
-          id: chatId,
-          student_id: studentId,
-          title: message.length > 30 ? message.substring(0, 27) + '...' : message,
-          subject: subject,
-          last_updated: new Date().toISOString(),
-        });
-        if (chatError) {
-          console.error('Error saving chat metadata to Supabase:', chatError.message);
-        }
-      } else {
-        const { error: chatError } = await supabase.from('chats').update({
-          last_updated: new Date().toISOString(),
-        }).eq('id', chatId);
-        if (chatError) {
-          console.error('Error updating chat metadata in Supabase:', chatError.message);
-        }
-      }
-    } catch (err) {
-      console.error('Error saving chat data to Supabase:', err);
-    }
-
-    console.log("Sending response back to client with chat ID:", chatId);
-    return NextResponse.json({ message: assistantResponse, chatId: chatId });
-
-  } catch (error) {
-    // Log the specific error object
-    console.error('API Route Exception:', error);
-    let errorMessage = 'Internal Server Error';
-    let statusCode = 500;
-
-    if (error instanceof OpenAI.APIError) {
-      console.error('AI Service API Error: Status', error.status || 'unknown', 'occurred');
-      errorMessage = 'AI service error. Please try again later.';
-      statusCode = error.status ?? 500;
-    } else if (error instanceof Error) {
-      errorMessage = 'Server error occurred. Please try again later.';
-    }
-
-    // Return a generic error to avoid exposing internal details
-    return NextResponse.json({ error: errorMessage }, { status: statusCode });
-  }
+  return NextResponse.json({
+    message: content,
+    next_required_score: nextThreshold(tier),
+    tier,
+  });
 }

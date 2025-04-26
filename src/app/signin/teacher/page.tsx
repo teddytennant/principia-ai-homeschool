@@ -8,7 +8,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabaseClient';
 
-export default function TeacherSignIn() {
+export default function ParentSignIn() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -47,26 +47,26 @@ export default function TeacherSignIn() {
 
         if (profileError) {
           setIsLoading(false);
-          setError("Warning: Unable to verify teacher status due to error: " + profileError.message + ".");
+          setError("Warning: Unable to verify parent status due to error: " + profileError.message + ".");
           await supabase.auth.signOut();
         } else if (!profileDataArray || profileDataArray.length === 0) {
           setIsLoading(false);
           setError("No profile found for this account. Please contact support.");
           await supabase.auth.signOut();
-        } else if (profileDataArray[0].role !== 'teacher') {
+        } else if (profileDataArray[0].role !== 'parent') {
           setIsLoading(false);
-          setError("Access denied: This account is registered as '" + (profileDataArray[0].role || 'unknown') + "', not as a teacher.");
+          setError("Access denied: This account is registered as '" + (profileDataArray[0].role || 'unknown') + "', not as a parent.");
           await supabase.auth.signOut();
         } else {
-          // Role is teacher, proceed
+          // Role is parent, proceed
           setTimeout(() => {
             console.log("Attempting redirect to dashboard...");
             // Set role cookie for middleware
-        // Set access token cookie for middleware
-        const accessToken = data.session.access_token;
-        document.cookie = `sb-access-token=${accessToken}; path=/; SameSite=Lax; max-age=86400`;
-        document.cookie = "role=teacher; path=/; SameSite=Lax; max-age=86400";
-        window.location.replace('/teacher/dashboard');
+            // Set access token cookie for middleware
+            const accessToken = data.session.access_token;
+            document.cookie = `sb-access-token=${accessToken}; path=/; SameSite=Lax; max-age=86400`;
+            document.cookie = "role=parent; path=/; SameSite=Lax; max-age=86400";
+            window.location.replace('/parent/dashboard');
           }, 100);
         }
       } catch (err) {
@@ -92,9 +92,9 @@ export default function TeacherSignIn() {
           className="w-full max-w-md p-8 space-y-8 bg-gray-900/80 border border-gray-700/50 rounded-xl shadow-lg shadow-indigo-500/20"
         >
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-white mb-2">Teacher Sign In</h1>
-            <p className="text-gray-400">Sign in to manage your classroom resources</p>
-            <p className="text-gray-400 text-sm mt-2">Your username and password will be given to you by your administrator.</p>
+            <h1 className="text-3xl font-bold text-white mb-2">Parent Sign In</h1>
+            <p className="text-gray-400">Sign in to monitor your child's progress</p>
+            <p className="text-gray-400 text-sm mt-2">After signing up and completing payment, you'll be able to add and manage student accounts with usernames and passwords.</p>
           </div>
 
           {error && (

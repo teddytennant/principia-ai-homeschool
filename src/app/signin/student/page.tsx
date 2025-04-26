@@ -17,13 +17,31 @@ export default function StudentSignIn() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleEmailSignIn = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    const userEmail = email.trim();
+    const inputValue = email.trim();
     const userPassword = password;
+
+    let userEmail = inputValue;
+    // Check if the input is not an email (doesn't contain '@'), assume it's a username
+    if (!inputValue.includes('@')) {
+      // Attempt to fetch email associated with username from profiles table
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('username', inputValue)
+        .limit(1);
+
+      if (profileError || !profileData || profileData.length === 0) {
+        setIsLoading(false);
+        setError("No account found with this username. Please check and try again.");
+        return;
+      }
+      userEmail = profileData[0].email;
+    }
 
     const { error, data } = await supabase.auth.signInWithPassword({
       email: userEmail,
@@ -91,7 +109,6 @@ export default function StudentSignIn() {
           <div className="text-center">
             <h1 className="text-3xl font-bold text-white mb-2">Student Sign In</h1>
             <p className="text-gray-400">Sign in to access your learning resources</p>
-            <p className="text-gray-400 text-sm mt-2">Your username and password will be given to you by your teacher or school district.</p>
           </div>
 
           {error && (
@@ -100,18 +117,18 @@ export default function StudentSignIn() {
             </div>
           )}
 
-          <form onSubmit={handleEmailSignIn} className="mt-8 space-y-4">
+          <form onSubmit={handleSignIn} className="mt-8 space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">Email</label>
-              <Input 
-                id="email" 
-                type="email" 
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
-                required 
-                placeholder="Enter your email address" 
-                className="w-full bg-gray-800 border-gray-700 text-white rounded-md py-3" 
-              />
+            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">Email or Username</label>
+            <Input 
+              id="email" 
+              type="text" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+              required 
+              placeholder="Enter your email or username" 
+              className="w-full bg-gray-800 border-gray-700 text-white rounded-md py-3" 
+            />
             </div>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">Password</label>

@@ -41,6 +41,19 @@ const subjects = [
 import { AuthGuard } from "./AuthGuard";
 
 function ChatPage() {
+  // Placeholder: Curriculum-Locked Progressive Disclosure state
+  // In a real implementation, this should be fetched from Supabase or backend based on the student's progress.
+  const [isCurriculumLocked, setIsCurriculumLocked] = useState<boolean>(false);
+  const [curriculumLockReason, setCurriculumLockReason] = useState<string>(
+    "You must complete the previous lesson to unlock this chat."
+  );
+
+  // Example: Simulate curriculum lock for demonstration (remove in real implementation)
+  useEffect(() => {
+    // TODO: Replace this with real logic (e.g., fetch curriculum progress)
+    // setIsCurriculumLocked(true); // Uncomment to simulate lock
+    setIsCurriculumLocked(false); // Allow chat by default
+  }, []);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -267,7 +280,15 @@ function ChatPage() {
       }
 
       const data = await response.json();
-      const assistantMessage: Message = { role: "assistant", content: data.message };
+      if (data.error) {
+        setMessages(prev => [...prev, { role: "assistant", content: `❗ ${data.error}` }]);
+        setIsLoading(false);
+        return;
+      }
+      const assistantContent = typeof data.message === 'string' && data.message.trim().length > 0
+        ? data.message
+        : '❗ The assistant could not generate a response. Please try again later.';
+      const assistantMessage: Message = { role: "assistant", content: assistantContent };
       const returnedChatId = data.chatId || chatIdToUpdate;
       setMessages(prev => [...prev, assistantMessage]);
       if (returnedChatId) {
@@ -297,10 +318,14 @@ function ChatPage() {
       }
       setIsLoading(false);
       // Persist assistant response to database
-      const { error: insertAssistantError } = await supabase
-        .from('chat_messages')
-        .insert([{ chat_id: returnedChatId, role: assistantMessage.role, content: assistantMessage.content, created_at: new Date().toISOString(), student_id: studentId, subject: selectedSubject }]);
-      if (insertAssistantError) console.error('Failed to save assistant message:', insertAssistantError.message);
+      if (typeof assistantMessage.content === 'string' && assistantMessage.content.trim().length > 0) {
+        const { error: insertAssistantError } = await supabase
+          .from('chat_messages')
+          .insert([{ chat_id: returnedChatId, role: assistantMessage.role, content: assistantMessage.content, created_at: new Date().toISOString(), student_id: studentId, subject: selectedSubject }]);
+        if (insertAssistantError) console.error('Failed to save assistant message:', insertAssistantError.message);
+      } else {
+        console.warn('Assistant message content is empty or invalid, skipping DB insert:', assistantMessage);
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
       setError(`${errorMessage}`);
@@ -458,12 +483,20 @@ function ChatPage() {
       <div className="pb-3 md:pb-4 pt-2 bg-gradient-to-t from-white via-white dark:from-neutral-900 dark:via-neutral-900 to-transparent">
         <div className="max-w-3xl mx-auto px-4">
           <div className="relative flex items-center bg-white dark:bg-neutral-800/80 rounded-2xl border border-gray-200 dark:border-neutral-700/80 shadow-lg focus-within:ring-2 focus-within:ring-indigo-500/70 transition-all duration-200 backdrop-blur-sm">
+            {/* Curriculum-Locked Progressive Disclosure UI */}
+            {isCurriculumLocked && (
+              <div className="absolute left-0 right-0 bottom-[62px] md:bottom-[70px] mx-4 mb-2 z-10 flex justify-center">
+                <div className="bg-yellow-100 dark:bg-yellow-900/70 text-yellow-800 dark:text-yellow-200 border border-yellow-300 dark:border-yellow-700 px-4 py-2 rounded-lg shadow text-center text-sm max-w-lg">
+                  <strong>Locked:</strong> {curriculumLockReason}
+                </div>
+              </div>
+            )}
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={`Message Principia AI...`}
+              placeholder={isCurriculumLocked ? "Chat is locked until you complete the required lesson." : `Message Principia AI...`}
               className={cn(
                 "flex-1 pl-4 pr-12 py-3",
                 "resize-none",
@@ -474,7 +507,7 @@ function ChatPage() {
                 "placeholder:text-gray-400 dark:placeholder:text-neutral-500",
                 "min-h-[58px] max-h-[200px] scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-neutral-600 scrollbar-track-transparent scrollbar-thumb-rounded-full"
               )}
-              disabled={isLoading}
+              disabled={isLoading || isCurriculumLocked}
             />
             <button
               type="button"
@@ -482,11 +515,11 @@ function ChatPage() {
               className={cn(
                 "absolute right-3 bottom-[9px] p-2 rounded-lg text-sm transition-all duration-150 ease-in-out",
                 "focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 dark:focus:ring-offset-neutral-800",
-                input.trim() && !isLoading
+                input.trim() && !isLoading && !isCurriculumLocked
                   ? "bg-indigo-600 dark:bg-indigo-500 text-white hover:bg-indigo-700 dark:hover:bg-indigo-600 active:bg-indigo-800 scale-100 hover:scale-[1.03] active:scale-95"
                   : "bg-gray-200 dark:bg-neutral-700 text-gray-400 dark:text-neutral-500 cursor-not-allowed"
               )}
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || !input.trim() || isCurriculumLocked}
               aria-label="Send message"
             >
               <SendHorizonal size={18} />

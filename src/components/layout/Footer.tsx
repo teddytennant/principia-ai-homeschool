@@ -13,15 +13,15 @@ export function Footer() {
               Pricing
             </Link>
             {/* Add relevant links here, e.g., Privacy Policy, Terms of Service */}
-            {/* <Link href="/privacy" className="text-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200">
+            <Link href="/privacy-policy" className="text-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200">
               Privacy Policy
             </Link>
-            <Link href="/terms" className="text-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200">
+            <Link href="/terms-of-service" className="text-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200">
               Terms of Service
-            </Link> */}
+            </Link>
           </div>
         </div>
       </div>
     </footer>
   );
-} 
+}
