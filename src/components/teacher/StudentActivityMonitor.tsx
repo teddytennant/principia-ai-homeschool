@@ -116,103 +116,74 @@ const fetchCurrentStudents = async (): Promise<Student[]> => {
             return [];
         }
         
-        console.log("Fetching students for teacher ID:", user.id, "Email:", user.email);
-        
-        // Fetch students related to the current teacher from teacher_student_relationships with a timeout
+        console.log("Fetching student profiles created by teacher ID:", user.id, "Email:", user.email);
+
+        // Fetch student profiles created by the current teacher from the 'profiles' table
         const fetchPromise = supabase
-            .from('teacher_student_relationships')
-            .select('student_id, status')
-            .eq('teacher_id', user.id);
+            .from('profiles') // Query the profiles table
+            .select('id, first_name, last_name') // Select relevant student profile fields
+            .eq('created_by', user.id); // Filter by the teacher's ID in created_by
 
         // Set a timeout of 10 seconds for the fetch operation
         const timeoutPromise = new Promise<never>((_, reject) => {
             setTimeout(() => reject(new Error('Fetch operation timed out')), 10000);
         });
 
-        let relData: Array<{ student_id: string; status: string }> | null = null;
-        let relError: unknown = null;
+        // Define type for the expected profile data
+        type FetchedProfile = { id: string; first_name: string | null; last_name: string | null };
+        let profileData: FetchedProfile[] | null = null;
+        let fetchError: unknown = null;
+
         try {
-            console.log("Attempting to fetch teacher-student relationships...");
-            const result = await Promise.race([fetchPromise, timeoutPromise]) as { data: Array<{ student_id: string; status: string }> | null; error: unknown };
-            relData = result.data;
-            relError = result.error;
-            console.log("Fetch result received:", { data: relData ? relData.length : null, error: relError });
+            console.log("Attempting to fetch student profiles...");
+            // Use Promise.race for timeout
+            const result = await Promise.race([fetchPromise, timeoutPromise]) as { data: FetchedProfile[] | null; error: unknown };
+            profileData = result.data;
+            fetchError = result.error;
+            console.log("Fetch result received:", { data: profileData ? profileData.length : null, error: fetchError });
         } catch (err) {
-            console.error("Timeout or error fetching teacher-student relationships:", err instanceof Error ? err.message : 'Unknown error');
-            relError = err;
-            relData = null;
+            console.error("Timeout or error fetching student profiles:", err instanceof Error ? err.message : 'Unknown error');
+            fetchError = err; // Assign the caught error (likely timeout)
+            profileData = null;
         }
 
-        if (relError) {
-            console.error("Error fetching teacher-student relationships from Supabase:", relError instanceof Error ? relError.message : String(relError) || "Timeout error");
+        if (fetchError) {
+            // Improved error logging - Use fetchError variable
+            console.error("Error fetching student profiles from Supabase. Raw error object:", fetchError);
+            let errorMessage = "Unknown error fetching student profiles.";
+            if (fetchError instanceof Error) {
+                errorMessage = fetchError.message;
+            } else if (typeof fetchError === 'object' && fetchError !== null && 'message' in fetchError) {
+                // Attempt to extract message if it's a Supabase-like error object
+                errorMessage = String(fetchError.message);
+            } else {
+                try {
+                    // Try to stringify if it's an object, otherwise convert directly
+                    errorMessage = typeof fetchError === 'object' ? JSON.stringify(fetchError) : String(fetchError);
+                } catch {
+                    errorMessage = String(fetchError); // Fallback to simple string conversion
+                }
+            }
+            console.error("Processed error message:", errorMessage);
             // Store error message to display in UI via state update (will be handled in component)
             return [];
         }
 
-        console.log("Fetched teacher-student relationships:", relData, "Total count:", relData?.length || 0);
+        console.log("Fetched student profiles:", profileData, "Total count:", profileData?.length || 0);
 
-        if (relData && relData.length > 0) {
-            // Map the fetched data to the Student interface
-            // Fetch all student profiles in a single batch query to optimize
-            const studentIds = relData.map(rel => rel.student_id);
-            const { data: profilesData, error: profilesError } = await supabase
-                .from('profiles')
-                .select('id, first_name, last_name, role')
-                .in('id', studentIds);
-
-            if (profilesError) {
-                console.error("Error fetching student profiles:", profilesError.message, "Details:", profilesError.details, "Hint:", profilesError.hint);
-                // Fall back to displaying student IDs with a clear indication
-                return relData.map((rel: { student_id: string; status: string }) => ({
-                    id: rel.student_id,
-                    name: `Student ID: ${rel.student_id.substring(0, 8)}... (Profile Not Found)`,
-                    isActive: rel.status === 'active'
-                }));
-            }
-
-            console.log("Fetched student profiles:", profilesData, "Total profiles fetched:", profilesData?.length || 0);
-
-            // Fetch from student_name_mapping as a fallback
-            const { data: mappingData, error: mappingError } = await supabase
-                .from('student_name_mapping')
-                .select('student_id, first_name, last_name')
-                .in('student_id', studentIds);
-
-            if (mappingError) {
-                console.error("Error fetching student name mappings:", mappingError.message, "Details:", mappingError.details, "Hint:", mappingError.hint);
-            } else {
-                console.log("Fetched student name mappings:", mappingData, "Total mappings fetched:", mappingData?.length || 0);
-            }
-
-            const students: Student[] = relData.map((rel: { student_id: string; status: string }) => {
-                const profile = profilesData.find((p: { id: string; first_name?: string; last_name?: string }) => p.id === rel.student_id);
-                if (profile) {
-                    return {
-                        id: rel.student_id,
-                        name: `${profile.first_name || 'Unknown'} ${profile.last_name || ''}`.trim(),
-                        isActive: rel.status === 'active'
-                    };
-                } else if (mappingData) {
-                    const mapping = mappingData.find((m: { student_id: string; first_name?: string; last_name?: string }) => m.student_id === rel.student_id);
-                    if (mapping) {
-                        return {
-                            id: rel.student_id,
-                            name: `${mapping.first_name || 'Unknown'} ${mapping.last_name || ''}`.trim(),
-                            isActive: rel.status === 'active'
-                        };
-                    }
-                }
-                console.log(`No profile or mapping found for student ${rel.student_id}`);
-                return {
-                    id: rel.student_id,
-                    name: `Student ID: ${rel.student_id.substring(0, 8)}... (Profile Not Found)`,
-                    isActive: rel.status === 'active'
-                };
-            });
+        if (profileData && profileData.length > 0) {
+            // Map the fetched profile data directly to the Student interface
+            // Assuming all fetched students are 'active' for monitoring purposes
+            // If a status field exists in 'profiles', it should be selected and used here.
+            const students: Student[] = profileData.map((profile) => ({
+                id: profile.id,
+                name: `${profile.first_name || 'Unknown'} ${profile.last_name || ''}`.trim(),
+                isActive: true // Assuming active, adjust if status is available in profiles
+            }));
             return students;
         }
 
-        console.log("No student relationships found for this teacher in the database.");
+        console.log("No student profiles found created by this teacher.");
         return [];
     } catch (err) {
         console.error("Unexpected error fetching students:", err);

@@ -5,7 +5,7 @@
 import React from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SettingsControls } from '@/components/teacher/SettingsControls';
+// Removed SettingsControls import as settings are now on a dedicated page
 import { CurriculumUploader } from '@/components/teacher/CurriculumUploader';
 import { StudentActivityMonitor } from '@/components/teacher/StudentActivityMonitor';
 import { SubjectSettings } from '@/components/teacher/SubjectSettings';
@@ -54,9 +54,15 @@ export default function TeacherDashboardPage() {
                   <CurriculumUploader />
                 </div>
               </div>
-              <div className="rounded-2xl bg-white dark:bg-gray-900 border border-indigo-100 dark:border-indigo-800 shadow-xl p-6">
-                <SettingsControls />
+              {/* Removed SettingsControls component from here */}
+              {/* Consider adding a link/button here to navigate to /teacher/settings */}
+              {/* Example:
+              <div className="text-center mt-4">
+                 <Link href="/teacher/settings">
+                    <Button variant="outline">Go to AI & General Settings</Button>
+                 </Link>
               </div>
+              */}
             </TabsContent>
 
             <TabsContent value="activity" className="space-y-8">

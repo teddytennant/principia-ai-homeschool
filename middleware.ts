@@ -1,11 +1,18 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
+// import type { Database } from '@/types/supabase'; // Removed due to missing types - generate later
 
-// Exclude certain paths from ALL checks (site password and auth)
+// --- START: Paywall Toggle ---
+// Set this to true to enable subscription checks, false to disable them globally.
+export const ENABLE_PAYWALL_CHECK = false; // Export the constant
+// --- END: Paywall Toggle ---
+
+// Exclude certain paths from ALL checks (auth)
 const ALWAYS_EXEMPT_PATHS = [
-  '/password', // Site password entry page
-  '/api/password/unlock', // Site password API
-  '/api/auth', // Supabase auth callbacks
+  // '/password', // Site password entry page - REMOVED
+  // '/api/password/unlock', // Site password API - REMOVED
+  '/api/auth', // Supabase auth callbacks (e.g., for OAuth, magic links)
+  '/api/webhooks', // Allow webhooks (Stripe) - Re-added
   '/_next', // Next.js internals
   '/_static', // Next.js internals
   '/favicon.ico',
@@ -28,11 +35,42 @@ const PUBLIC_ROUTES = [
   '/how-it-works',
   '/privacy-policy',
   '/terms-of-service',
+  '/help', // Added help page
+  '/forgot-password', // Allow access to forgot password page
+  '/reset-password', // Allow access to reset password page
   // Add other public informational pages here
 ];
 
-// Site password (keep this check)
-const SITE_PASSWORD = `TennantFam2467*/`;
+// Routes that require authentication but maybe not subscription (adjust as needed)
+const AUTHENTICATED_ROUTES = [
+    '/settings', // General user settings
+];
+
+// Routes specifically for teachers
+const TEACHER_ROUTES = [
+    '/teacher/dashboard',
+    '/teacher/settings',
+    '/teacher/students', // Assuming student management is teacher-only
+    // Add other teacher-specific routes
+];
+
+// Routes specifically for students
+const STUDENT_ROUTES = [
+    '/chat', // Assuming chat is student-only
+    // Add other student-specific routes
+];
+
+// Routes that require an active subscription (can overlap with others)
+const SUBSCRIPTION_ROUTES = [
+  '/chat',
+  '/teacher/dashboard',
+  '/teacher/settings',
+  '/teacher/students',
+  // Add other routes that require payment
+];
+
+// Site password REMOVED
+// const SITE_PASSWORD = `TennantFam2467*/`; // Consider moving to env var
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -45,16 +83,16 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Check site password cookie
-  const sitePass = req.cookies.get('site_pass')?.value;
-  if (sitePass !== SITE_PASSWORD) {
-    const url = req.nextUrl.clone();
-    url.pathname = '/password'; // Redirect to site password entry
-    // Prevent redirect loop for the password page itself
-    if (pathname !== '/password') {
-      return NextResponse.redirect(url);
-    }
-  }
+  // 2. Check site password cookie - REMOVED
+  // const sitePass = req.cookies.get('site_pass')?.value;
+  // if (sitePass !== SITE_PASSWORD) {
+  //   const url = req.nextUrl.clone();
+  //   url.pathname = '/password'; // Redirect to site password entry
+  //   // Prevent redirect loop for the password page itself
+  //   if (pathname !== '/password') {
+  //     return NextResponse.redirect(url);
+  //   }
+  // }
 
   // --- Supabase Auth Check ---
   let response = NextResponse.next({
@@ -72,16 +110,22 @@ export async function middleware(req: NextRequest) {
           return req.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
+          // If the cookie is set, update the request and response cookies.
           req.cookies.set({ name, value, ...options });
-          response = NextResponse.next({ // Use NextResponse.next to handle potential cookie setting
-            request: { headers: req.headers },
+          response = NextResponse.next({
+            request: {
+              headers: req.headers,
+            },
           });
           response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
+          // If the cookie is removed, update the request and response cookies.
           req.cookies.set({ name, value: '', ...options });
-          response = NextResponse.next({ // Use NextResponse.next here too
-            request: { headers: req.headers },
+          response = NextResponse.next({
+            request: {
+              headers: req.headers,
+            },
           });
           response.cookies.set({ name, value: '', ...options });
         },
@@ -89,17 +133,19 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // Refresh session if expired - important!
-  const { data: { session } } = await supabase.auth.getSession();
+  // Explicitly try to refresh the session first - might help with timing issues
+  await supabase.auth.refreshSession();
+  // Now use getUser() to validate the session based on cookies
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   const isPublicRoute = PUBLIC_ROUTES.some(route =>
-    pathname === route || (route !== '/' && pathname.startsWith(route + '/'))
+    pathname === route || (route !== '/' && pathname.startsWith(route + '/')) // Check prefix for sub-routes
   );
   const isAuthRoute = pathname.startsWith('/signin') || pathname.startsWith('/signup');
 
   // 3. Handle Authentication Logic
-  if (!session) {
-    // User is not logged in
+  if (userError || !user) { // Check for error or no user
+    // User is not logged in or session is invalid
     if (!isPublicRoute) {
       // Redirect to signin if trying to access a protected route
       const url = req.nextUrl.clone();
@@ -110,14 +156,84 @@ export async function middleware(req: NextRequest) {
     // Allow access to public routes if not logged in
   } else {
     // User is logged in
+
+    // Fetch user role (needed for role-based access and potentially redirection)
+    let userRole: string | null = null;
+    const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, subscription_status') // Fetch role and subscription status
+        .eq('id', user.id)
+        .single();
+
+    if (profileError) {
+        console.error('Middleware: Error fetching profile for role/sub check:', profileError.message);
+        // If profile fetch fails, maybe redirect to an error page or sign out?
+        // For now, sign out to prevent inconsistent state.
+        await supabase.auth.signOut();
+        const url = req.nextUrl.clone();
+        url.pathname = '/signin'; // Redirect to signin after signout
+        return NextResponse.redirect(url);
+    }
+    userRole = profile?.role || null;
+    const subscriptionStatus = profile?.subscription_status || null;
+
+    // Redirect logged-in users away from signin/signup pages
     if (isAuthRoute) {
-      // Redirect logged-in users away from signin/signup pages
       const url = req.nextUrl.clone();
-      url.pathname = '/'; // Redirect to home page (or a dashboard)
-      console.log(`Redirecting authenticated user from ${pathname} to /`);
+      // Redirect to appropriate dashboard based on role
+      url.pathname = userRole === 'teacher' ? '/teacher/dashboard' : '/chat'; // Default to chat for students/others
+      console.log(`Redirecting authenticated ${userRole || 'user'} from ${pathname} to ${url.pathname}`);
       return NextResponse.redirect(url);
     }
-    // Allow access to other routes (public or protected) if logged in
+
+    // --- Role-Based Access Control ---
+    const isTeacherRoute = TEACHER_ROUTES.some(route => pathname.startsWith(route));
+    const isStudentRoute = STUDENT_ROUTES.some(route => pathname.startsWith(route));
+
+    if (isTeacherRoute && userRole !== 'teacher') {
+        console.log(`Redirecting non-teacher user from teacher route ${pathname}`);
+        const url = req.nextUrl.clone();
+        url.pathname = '/'; // Or maybe '/chat' if students have access there
+        return NextResponse.redirect(url);
+    }
+
+    if (isStudentRoute && userRole !== 'student') {
+         console.log(`Redirecting non-student user from student route ${pathname}`);
+         const url = req.nextUrl.clone();
+         url.pathname = '/'; // Or maybe '/teacher/dashboard' if it's a teacher
+         return NextResponse.redirect(url);
+    }
+
+    // --- Subscription Check for Subscription-Required Routes ---
+    const needsSubscription = SUBSCRIPTION_ROUTES.some(route => pathname.startsWith(route));
+
+    if (needsSubscription) {
+      // --- Add check for test user email ---
+      const userEmail = user.email;
+      const TEST_EMAIL_DOMAIN = '@test.principia.ai'; // Define your test domain
+
+      if (userEmail && userEmail.endsWith(TEST_EMAIL_DOMAIN)) {
+        console.log(`Allowing test user ${userEmail} access to protected route ${pathname}`);
+        return response; // Skip subscription check for test users
+      }
+      // --- End check for test user email ---
+
+      // Only run subscription check if the paywall is enabled
+      if (ENABLE_PAYWALL_CHECK) {
+        // Use the subscriptionStatus fetched earlier
+        const isActive = subscriptionStatus === 'active';
+
+        if (!isActive) {
+          // User is logged in but doesn't have an active subscription
+          console.log(`Redirecting user ${user.id} from subscription route ${pathname} to /pricing (status: ${subscriptionStatus})`);
+          const url = req.nextUrl.clone();
+          url.pathname = '/pricing'; // Redirect to pricing page
+          return NextResponse.redirect(url);
+        }
+        // Allow access if subscription is active
+      } // End of ENABLE_PAYWALL_CHECK block
+    }
+    // Allow access if route doesn't require subscription or paywall is disabled
   }
 
   // If all checks pass, proceed

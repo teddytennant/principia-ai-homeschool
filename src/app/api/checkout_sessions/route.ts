@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     // Use environment variable or default to localhost for local development
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     console.log(`Using base URL for Stripe redirects: ${baseUrl}`); // Add logging for debugging
-    const successUrl = `${baseUrl}/`; // Redirect to home page on success
+    const successUrl = `${baseUrl}/chat`; // Redirect to chat page on success
     const cancelUrl = `${baseUrl}/pricing`; // Redirect back to pricing page on cancellation
 
     // Create a Checkout Session

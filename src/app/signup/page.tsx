@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation'; // Import useRouter
+import React, { useState, useRef } from 'react'; // Import useRef
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import ReCAPTCHA from "react-google-recaptcha"; // Import ReCAPTCHA
 import { Button } from "@/components/ui/button";
 import Link from 'next/link'; // Import Link
 import { Input } from "@/components/ui/input";
@@ -17,14 +18,16 @@ export default function SignUp() {
   const [firstName, setFirstName] = useState(''); // Added first name state
   const [lastName, setLastName] = useState(''); // Added last name state
   const [role, setRole] = useState('student'); // Default to student
-  const [agreedToTerms, setAgreedToTerms] = useState(false); // Added state for agreement
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null); // Add success message state
   const [isLoading, setIsLoading] = useState(false);
-  // Removed successMessage state
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null); // Clear previous errors
+    setError(null);
+    setSuccessMessage(null); // Clear previous success message
 
     // Check if terms are agreed
     if (!agreedToTerms) {
@@ -33,42 +36,59 @@ export default function SignUp() {
     }
 
     setIsLoading(true);
-    // Removed setSuccessMessage(null);
 
-    // Sign up the user with Supabase, passing role and names in metadata
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password: password,
-      options: {
-        data: {
-          role: role,
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-        }
-      }
-    });
+    // Execute reCAPTCHA challenge
+    const recaptchaToken = await recaptchaRef.current?.executeAsync();
+    recaptchaRef.current?.reset(); // Reset after execution
 
-    setIsLoading(false); // Set loading false after signup attempt
-
-    if (error) {
-      setError("Sign-up failed: " + error.message);
+    if (!recaptchaToken) {
+      setError("CAPTCHA verification failed. Please try again.");
+      setIsLoading(false);
       return;
     }
 
-    // Profile creation is now handled by the trigger.
-    // Just redirect if signup was successful.
-    if (data && data.user) {
-      // Redirect to pricing page
-      router.push('/pricing');
-      // No need to clear fields as we are navigating away
-      // setEmail('');
-      // setPassword('');
+    // Send data to backend API route
+    try {
+      const response = await fetch('/api/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          role: role,
+          recaptchaToken: recaptchaToken, // Send the token
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Sign-up failed.');
+      }
+
+      // Signup successful, show success message and clear form
+      setSuccessMessage("Sign-up successful! Please check your email and click the verification link to activate your account.");
+      setEmail('');
+      setPassword('');
       setFirstName('');
       setLastName('');
       setRole('student');
-    } else {
-      // This case might be less likely now, but good to keep for robustness
-      setError("Sign-up attempt finished, but no user data returned. Please check your email or try again.");
+      setAgreedToTerms(false); // Reset terms checkbox
+
+    } catch (error: any) {
+      // Check for the specific error message indicating an existing user
+      if (error.message === 'Sign-up failed: This email address is already registered.') {
+        setError('Account already exists, please log in.');
+      } else {
+        // Use the error message from the API for other errors
+        setError(error.message || 'An unexpected error occurred.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -93,10 +113,17 @@ export default function SignUp() {
             </div>
           )}
 
-          {/* Removed successMessage display */}
+          {/* Display success message */}
+          {successMessage && (
+            <div className="text-center text-green-400 text-sm font-medium bg-green-500/10 border border-green-500/20 rounded-md p-3">
+              {successMessage}
+            </div>
+          )}
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-            <div>
+          {/* Hide form if signup was successful */}
+          {!successMessage && (
+            <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+              <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">Email</label>
               <Input 
                 id="email" 
@@ -175,14 +202,22 @@ export default function SignUp() {
                 </Link>.
               </label>
             </div>
+            {/* Add ReCAPTCHA component (invisible v3) */}
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              size="invisible"
+              sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!} // Use site key from env
+              // badge="bottomright" // Optional: control badge position
+            />
             <Button
               type="submit"
-              disabled={isLoading || !agreedToTerms} // Disable if loading or terms not agreed
+              disabled={isLoading || !agreedToTerms}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-md transition-all duration-300 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? "Signing up..." : "Sign Up"}
-            </Button>
-          </form>
+                {isLoading ? "Signing up..." : "Sign Up"}
+              </Button>
+            </form>
+          )}
         </motion.div>
       </main>
       <Footer />

@@ -11,12 +11,16 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from "@/lib/supabaseClient";
+import { useChat } from 'ai/react'; // Import useChat hook
 
-// Define message type
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+// Define message type - Align with useChat's expected structure
+// Import Message type from 'ai' package for consistency
+import { Message } from 'ai/react';
+// interface Message {
+//   id: string; // Add ID field
+//   role: "user" | "assistant";
+//   content: string;
+// }
 
 // Define Chat History Item type
 interface ChatHistoryItem {
@@ -24,7 +28,7 @@ interface ChatHistoryItem {
   title: string;
 }
 
-// Type for storing messages per chat
+// Type for storing messages per chat (using the imported Message type)
 interface ChatMessagesStore {
   [key: string]: Message[];
 }
@@ -54,10 +58,10 @@ function ChatPage() {
     // setIsCurriculumLocked(true); // Uncomment to simulate lock
     setIsCurriculumLocked(false); // Allow chat by default
   }, []);
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Remove manual message state, isLoading, error - useChat handles these
+  // const [messages, setMessages] = useState<Message[]>([]);
+  // const [isLoading, setIsLoading] = useState(false);
+  // const [error, setError] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string>(subjects[0].value);
 
   // State for chat history and current chat ID
@@ -71,14 +75,43 @@ function ChatPage() {
 
   // Use the auto-resize hook
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
-    minHeight: 52,
-    maxHeight: 200,
+    minHeight: 52, // Keep minHeight
+    maxHeight: 200, // Keep maxHeight
   });
 
-  // Scroll to bottom effect
+  // Initialize useChat hook
+  const { messages, input, handleInputChange, handleSubmit, isLoading, error, setMessages } = useChat({
+    api: '/api/chat', // Point to your chat API route
+    body: { // Send additional data needed by the API
+      subject: selectedSubject,
+      // History is managed by the hook, but you might send initial history if loading from DB
+    },
+    headers: {
+        // Pass chatId if managing multiple chats client-side
+        'X-Chat-ID': currentChatId || '', // Send currentChatId or empty string
+    },
+    initialMessages: [], // Start with empty messages or load from DB/local storage
+    onError: (err) => {
+      // Handle API errors reported by the hook
+      console.error("useChat hook error:", err);
+      // You might want to display this error in the UI
+    },
+    onFinish: (message) => {
+        // Optional: Callback when the stream finishes for a message
+        console.log("Stream finished for message:", message);
+        // Note: Database saving is now handled server-side in the API route's onFinish
+    }
+  });
+
+  // Scroll to bottom effect - useChat's messages array triggers this
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Adjust textarea height when input changes (handled by useChat's handleInputChange)
+  useEffect(() => {
+    adjustHeight();
+  }, [input, adjustHeight]);
 
   // Fetch chat history from Supabase on component mount with retry mechanism
   useEffect(() => {
@@ -132,8 +165,13 @@ function ChatPage() {
             if (messagesError) {
               console.error(`Error fetching messages for chat ${chat.id}:`, messagesError.message);
             } else if (messagesData) {
-              messagesStore[chat.id] = messagesData.map(msg => ({ role: msg.role as "user" | "assistant", content: msg.content }));
-              console.log(`Loaded ${messagesData.length} messages for chat ${chat.id}`, messagesData);
+              // Map fetched messages to the Message type, generating IDs
+              messagesStore[chat.id] = messagesData.map((msg, index) => ({
+                  id: `${chat.id}-${index}-${msg.role}`, // Generate a simple unique ID
+                  role: msg.role as "user" | "assistant",
+                  content: msg.content
+              }));
+              console.log(`Loaded ${messagesData.length} messages for chat ${chat.id}`);
             }
           }
           setAllChatMessages(messagesStore);
@@ -156,12 +194,13 @@ function ChatPage() {
     fetchChatHistory();
   }, []);
 
-  // Function to start a new chat (clears current messages and selection)
+  // Function to start a new chat
   const handleNewChat = () => {
-    setCurrentChatId(null);
-    setMessages([]);
-    setInput("");
-    setError(null);
+    const newId = uuidv4(); // Generate a new ID for the potential chat
+    setCurrentChatId(newId); // Set as current (even if no messages yet)
+    setMessages([]); // Clear messages using the hook's setter
+    // Input is managed by useChat, no need to clear manually here
+    // Error is managed by useChat
     textareaRef.current?.focus();
     adjustHeight(true);
     console.log("New chat started");
@@ -169,184 +208,31 @@ function ChatPage() {
 
   // Function to handle selecting a chat from history
   const handleSelectChat = (id: string) => {
-    const selectedChat = chatHistory.find(chat => chat.id === id);
     const messagesForSelectedChat = allChatMessages[id];
-    if (selectedChat) {
+    if (messagesForSelectedChat) {
       setCurrentChatId(id);
-      setMessages(messagesForSelectedChat || []);
-      setInput("");
-      setError(null);
+      // Ensure messages have IDs when setting state for useChat
+      setMessages(messagesForSelectedChat.map((msg, index) => ({
+          ...msg,
+          id: msg.id || `${id}-${index}-${msg.role}` // Ensure ID exists or generate one
+      })));
+      // Input is managed by useChat
+      // Error is managed by useChat
       console.log(`Selected chat: ${id}`);
       textareaRef.current?.focus();
       adjustHeight(true);
     }
   };
 
-  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
-    if (e) e.preventDefault();
-    if (!input.trim() || isLoading) return;
-    const currentInput = input.trim();
-    // Always get the studentId before inserts
-    const { data: userData } = await supabase.auth.getUser();
-    const studentId = userData?.user?.id;
-    if (!studentId) {
-      setError("User is not authenticated or studentId is missing.");
-      setIsLoading(false);
-      return;
-    }
-    const userMessage: Message = { role: "user", content: currentInput };
-    const chatIdToUpdate = currentChatId ?? uuidv4();
-    // If it's a new chat, add to chat history and set current chat ID
-    if (currentChatId === null) {
-      const newChatTitle = currentInput.length > 30 
-          ? currentInput.substring(0, 27) + '...'
-          : currentInput;
-      const newChatItem: ChatHistoryItem = { id: chatIdToUpdate, title: newChatTitle };
-      setChatHistory(prev => [newChatItem, ...prev]);
-      setAllChatMessages(prev => ({
-        ...prev,
-        [chatIdToUpdate]: [userMessage],
-      }));
-      setCurrentChatId(chatIdToUpdate);
-      // Insert new chat into Supabase
-      const { error: insertChatError } = await supabase
-        .from('chats')
-        .insert([{ id: chatIdToUpdate, title: newChatTitle, student_id: studentId, subject: selectedSubject, last_updated: new Date().toISOString() }]);
-      if (insertChatError) {
-        setError('Failed to create chat: ' + insertChatError.message);
-        setIsLoading(false);
-        return;
-      }
+  // Remove the old handleSubmit and handleInputChange, useChat provides these
 
-    setAllChatMessages(prev => ({
-      ...prev,
-      [chatIdToUpdate]: [...(prev[chatIdToUpdate] || []), userMessage],
-    }));
-    }
-    setMessages(prev => [...prev, userMessage]);
-    setInput("");
-    setError(null);
-    // Insert new message into Supabase
-    try {
-      setIsLoading(true);
-      console.log("Inserting message with studentId:", studentId, {
-        chat_id: chatIdToUpdate,
-        role: userMessage.role,
-        content: userMessage.content,
-        created_at: new Date().toISOString(),
-        student_id: studentId,
-        subject: selectedSubject
-      });
-      const { error: insertMsgError } = await supabase
-        .from('chat_messages')
-        .insert([{ chat_id: chatIdToUpdate, role: userMessage.role, content: userMessage.content, created_at: new Date().toISOString(), student_id: studentId, subject: selectedSubject }]);
-      if (insertMsgError) {
-        setError('Failed to send message: ' + insertMsgError.message);
-      }
-      // Log activity for teacher dashboard
-      await supabase.from('student_activity').insert([{
-        student_id: studentId,
-        activity_type: 'message_sent',
-        details: userMessage.content.substring(0, 100),
-        created_at: new Date().toISOString()
-      }]);
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
-      setError(`${errorMessage}`);
-      setMessages(prev => prev.slice(0, -1));
-      setInput(currentInput);
-      requestAnimationFrame(() => adjustHeight());
-    } finally {
-      setIsLoading(false);
-    }
-    try {
-      setIsLoading(true);
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Chat-ID': chatIdToUpdate,
-        },
-        body: JSON.stringify({
-          message: userMessage.content,
-          subject: selectedSubject,
-          history: messages,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      if (data.error) {
-        setMessages(prev => [...prev, { role: "assistant", content: `❗ ${data.error}` }]);
-        setIsLoading(false);
-        return;
-      }
-      const assistantContent = typeof data.message === 'string' && data.message.trim().length > 0
-        ? data.message
-        : '❗ The assistant could not generate a response. Please try again later.';
-      const assistantMessage: Message = { role: "assistant", content: assistantContent };
-      const returnedChatId = data.chatId || chatIdToUpdate;
-      setMessages(prev => [...prev, assistantMessage]);
-      if (returnedChatId) {
-        setAllChatMessages(prevStore => {
-          const newStore = { ...prevStore };
-          Object.defineProperty(newStore, returnedChatId as string, {
-            value: [...(prevStore[returnedChatId as string] || []), assistantMessage],
-            writable: true,
-            enumerable: true,
-            configurable: true
-          });
-          return newStore;
-        });
-        if (currentChatId === null) {
-          setCurrentChatId(returnedChatId);
-          const newChatTitle = currentInput.length > 30 
-              ? currentInput.substring(0, 27) + '...'
-              : currentInput;
-          setChatHistory(prev => {
-            // Check if the chat ID already exists to avoid duplicates
-            if (prev.some(chat => chat.id === returnedChatId)) {
-              return prev;
-            }
-            return [{ id: returnedChatId, title: newChatTitle }, ...prev];
-          });
-        }
-      }
-      setIsLoading(false);
-      // Persist assistant response to database
-      if (typeof assistantMessage.content === 'string' && assistantMessage.content.trim().length > 0) {
-        const { error: insertAssistantError } = await supabase
-          .from('chat_messages')
-          .insert([{ chat_id: returnedChatId, role: assistantMessage.role, content: assistantMessage.content, created_at: new Date().toISOString(), student_id: studentId, subject: selectedSubject }]);
-        if (insertAssistantError) console.error('Failed to save assistant message:', insertAssistantError.message);
-      } else {
-        console.warn('Assistant message content is empty or invalid, skipping DB insert:', assistantMessage);
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
-      setError(`${errorMessage}`);
-      setMessages(prev => prev.slice(0, -1));
-      setInput(currentInput);
-      requestAnimationFrame(() => adjustHeight());
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Update input state and adjust textarea height
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-    adjustHeight();
-  };
-
+  // Keep handleKeyDown, but call useChat's handleSubmit
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit();
+      // Create a synthetic event or pass necessary info if handleSubmit expects it
+      // For useChat, often just calling it without event works if input is managed by the hook
+      handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>);
     }
   };
 
@@ -468,8 +354,9 @@ function ChatPage() {
           {/* Error Message */}
           {error && (
             <div className="flex justify-center p-4">
+              {/* Display error from useChat hook */}
               <div className="text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-500/30 px-3 py-2 rounded-lg text-sm max-w-md text-center">
-                <strong>Error:</strong> {error}
+                <strong>Error:</strong> {error?.message || "An unknown error occurred."}
               </div>
             </div>
           )}
@@ -494,7 +381,7 @@ function ChatPage() {
             <Textarea
               ref={textareaRef}
               value={input}
-              onChange={handleInputChange}
+              onChange={handleInputChange} // Use useChat's handler
               onKeyDown={handleKeyDown}
               placeholder={isCurriculumLocked ? "Chat is locked until you complete the required lesson." : `Message Principia AI...`}
               className={cn(
@@ -510,8 +397,8 @@ function ChatPage() {
               disabled={isLoading || isCurriculumLocked}
             />
             <button
-              type="button"
-              onClick={() => handleSubmit()}
+              type="submit" // Change to type="submit" for form submission
+              // onClick={() => handleSubmit()} // Remove onClick, form onSubmit handles it
               className={cn(
                 "absolute right-3 bottom-[9px] p-2 rounded-lg text-sm transition-all duration-150 ease-in-out",
                 "focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 dark:focus:ring-offset-neutral-800",

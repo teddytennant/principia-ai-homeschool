@@ -1,15 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-
+import Link from 'next/link'; // Import Link component
 import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabaseClient';
+import { Input } from "@/components/ui/input"; // Import Input component
 
-export default function ParentSignIn() {
-  const [username, setUsername] = useState('');
+export default function TeacherSignIn() { // Renamed component
+  const [email, setEmail] = useState(''); // Changed state variable name for clarity
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,13 +20,11 @@ export default function ParentSignIn() {
     setIsLoading(true);
     setError(null);
 
-    // Assuming teachers use email for login, we might need to adjust based on actual setup
-    // If username is not an email, we might need to fetch the email associated with the username from Supabase
-    // For now, assuming username is email for simplicity
-    const userEmail = username.trim();
+    // Assuming teachers use email for login
+    const userEmail = email.trim(); // Use email state variable
 
     const { error, data } = await supabase.auth.signInWithPassword({
-      email: userEmail,
+      email: userEmail, // Use trimmed email
       password: password,
     });
 
@@ -35,38 +34,38 @@ export default function ParentSignIn() {
     if (error) {
       console.error("Sign-in error details:", error);
       setIsLoading(false);
-      setError("Wrong password, try again. Check console for detailed error.");
+      setError("Sign-in failed. Please check your email and password."); // More user-friendly error
     } else if (data && data.session) {
       // Fetch profile and check role
       try {
         const { data: profileDataArray, error: profileError } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role') // Select the role column
           .eq('id', data.user.id)
           .limit(1);
 
         if (profileError) {
           setIsLoading(false);
-          setError("Warning: Unable to verify parent status due to error: " + profileError.message + ".");
+          setError("Warning: Unable to verify teacher status due to error: " + profileError.message + "."); // Updated error message context
           await supabase.auth.signOut();
         } else if (!profileDataArray || profileDataArray.length === 0) {
           setIsLoading(false);
           setError("No profile found for this account. Please contact support.");
           await supabase.auth.signOut();
-        } else if (profileDataArray[0].role !== 'parent') {
+        } else if (profileDataArray[0].role !== 'teacher') { // Check for 'teacher' role
           setIsLoading(false);
-          setError("Access denied: This account is registered as '" + (profileDataArray[0].role || 'unknown') + "', not as a parent.");
+          setError("Access denied: This account is registered as '" + (profileDataArray[0].role || 'unknown') + "', not as a teacher."); // Updated error message
           await supabase.auth.signOut();
         } else {
-          // Role is parent, proceed
+          // Role is teacher, proceed
           setTimeout(() => {
-            console.log("Attempting redirect to dashboard...");
+            console.log("Attempting redirect to teacher dashboard..."); // Updated log message
             // Set role cookie for middleware
-            // Set access token cookie for middleware
+            // Set access token and role cookies for middleware
             const accessToken = data.session.access_token;
-            document.cookie = `sb-access-token=${accessToken}; path=/; SameSite=Lax; max-age=86400`;
-            document.cookie = "role=parent; path=/; SameSite=Lax; max-age=86400";
-            window.location.replace('/parent/dashboard');
+            document.cookie = `sb-access-token=${accessToken}; path=/; SameSite=Lax; max-age=86400`; // Set access token cookie
+            document.cookie = "role=teacher; path=/; SameSite=Lax; max-age=86400"; // Set role cookie to 'teacher'
+            window.location.replace('/teacher/dashboard'); // Redirect to teacher dashboard
           }, 100);
         }
       } catch (err) {
@@ -85,16 +84,15 @@ export default function ParentSignIn() {
     <div className="flex flex-col min-h-screen bg-black text-gray-100">
       <Header />
       <main className="flex-grow flex items-center justify-center px-4 py-16 md:py-24 bg-gradient-to-br from-black via-gray-900 to-indigo-900/30">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="w-full max-w-md p-8 space-y-8 bg-gray-900/80 border border-gray-700/50 rounded-xl shadow-lg shadow-indigo-500/20"
         >
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-white mb-2">Parent Sign In</h1>
-            <p className="text-gray-400">Sign in to monitor your child's progress</p>
-            <p className="text-gray-400 text-sm mt-2">After signing up and completing payment, you'll be able to add and manage student accounts with usernames and passwords.</p>
+            <h1 className="text-3xl font-bold text-white mb-2">Teacher Sign In</h1> {/* Updated title */}
+            <p className="text-gray-400">Sign in to manage your classes and students.</p> {/* Updated description */}
           </div>
 
           {error && (
@@ -105,21 +103,21 @@ export default function ParentSignIn() {
 
           <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">Email</label>
-              <input
-                id="username"
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">Email</label> {/* Changed htmlFor */}
+              <Input
+                id="email" // Changed id
                 type="email"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email} // Use email state variable
+                onChange={(e) => setEmail(e.target.value)} // Update email state
                 required
                 placeholder="Enter your email"
                 className="w-full bg-gray-800 border-gray-700 text-white rounded-md py-3 px-3"
-                autoComplete="username"
+                autoComplete="email" // Changed autocomplete
               />
             </div>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">Password</label>
-              <input
+              <Input
                 id="password"
                 type="password"
                 value={password}
@@ -137,6 +135,11 @@ export default function ParentSignIn() {
             >
               {isLoading ? "Signing in..." : "Sign in"}
             </Button>
+             <div className="text-center mt-4">
+                <Link href="/forgot-password" className="text-sm text-indigo-400 hover:underline">
+                  Forgot Password?
+                </Link>
+              </div>
           </form>
         </motion.div>
       </main>

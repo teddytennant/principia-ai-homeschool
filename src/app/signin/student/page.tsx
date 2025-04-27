@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link'; // Import Link
 
 import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function StudentSignIn() {
-  const [email, setEmail] = useState('');
+  const [usernameInput, setUsernameInput] = useState(''); // Renamed state
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -22,29 +23,25 @@ export default function StudentSignIn() {
     setIsLoading(true);
     setError(null);
 
-    const inputValue = email.trim();
+    const usernameOrEmail = usernameInput.trim(); // Use renamed state
     const userPassword = password;
 
-    let userEmail = inputValue;
+    let signInEmail: string;
     // Check if the input is not an email (doesn't contain '@'), assume it's a username
-    if (!inputValue.includes('@')) {
-      // Attempt to fetch email associated with username from profiles table
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('username', inputValue)
-        .limit(1);
-
-      if (profileError || !profileData || profileData.length === 0) {
-        setIsLoading(false);
-        setError("No account found with this username. Please check and try again.");
-        return;
-      }
-      userEmail = profileData[0].email;
+    if (!usernameOrEmail.includes('@')) {
+      // Construct the dummy email using the username convention
+      signInEmail = `${usernameOrEmail.toLowerCase()}@managed.principia.ai`;
+      console.log("Attempting sign-in with constructed dummy email:", signInEmail);
+    } else {
+      // Assume it's a real email
+      signInEmail = usernameOrEmail;
+      console.log("Attempting sign-in with provided email:", signInEmail);
     }
 
+    // Remove the unnecessary profile query here
+
     const { error, data } = await supabase.auth.signInWithPassword({
-      email: userEmail,
+      email: signInEmail, // Use the determined email (real or dummy)
       password: userPassword,
     });
 
@@ -119,12 +116,12 @@ export default function StudentSignIn() {
 
           <form onSubmit={handleSignIn} className="mt-8 space-y-4">
             <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">Email or Username</label>
-            <Input 
-              id="email" 
-              type="text" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
+            <label htmlFor="usernameOrEmail" className="block text-sm font-medium text-gray-300 mb-1">Username or Email</label> {/* Updated label */}
+            <Input
+              id="usernameOrEmail" // Updated id
+              type="text"
+              value={usernameInput} // Use renamed state
+              onChange={(e) => setUsernameInput(e.target.value)} // Update renamed state
               required 
               placeholder="Enter your email or username" 
               className="w-full bg-gray-800 border-gray-700 text-white rounded-md py-3" 
@@ -149,6 +146,11 @@ export default function StudentSignIn() {
             >
               {isLoading ? "Signing in..." : "Sign in"}
             </Button>
+             <div className="text-center mt-4">
+                <Link href="/forgot-password" className="text-sm text-indigo-400 hover:underline">
+                  Forgot Password?
+                </Link>
+              </div>
           </form>
         </motion.div>
       </main>
