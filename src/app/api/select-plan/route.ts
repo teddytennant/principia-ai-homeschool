@@ -45,38 +45,56 @@ export async function POST(req: NextRequest) {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    // Not authenticated, redirect to signin
-    const url = req.nextUrl.clone();
-    url.pathname = '/signin';
-    console.log('API /select-plan: User not authenticated, redirecting to /signin');
-    // Return a NEW redirect response, not the potentially modified 'response' object
-    return NextResponse.redirect(url);
+    // Not authenticated, return an error response
+    console.log('API /select-plan: User not authenticated');
+    return NextResponse.json({ error: 'User not authenticated', redirectPath: '/signin' }, { status: 401 });
   }
 
-  // User is authenticated, determine redirect based on planKey
+  // User is authenticated, determine redirect and update role based on planKey
   try {
     const { planKey } = await req.json();
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    let redirectPath = '/chat'; // Default for individual
+    let redirectPath: string | null = null;
+    let targetRole: string | null = null;
 
-    if (planKey === 'family' || planKey === 'coop') {
+    // Map planKey to role and redirect path
+    if (planKey === 'family') {
+      targetRole = 'parent';
+      redirectPath = '/parent/dashboard';
+    } else if (planKey === 'coop') {
+      targetRole = 'teacher';
       redirectPath = '/teacher/dashboard';
+    } else if (planKey === 'individual') {
+      targetRole = 'student';
+      redirectPath = '/chat';
+    } else {
+      // Handle invalid planKey
+      console.error(`API /select-plan: Invalid planKey received: ${planKey}`);
+      return NextResponse.json({ error: 'Invalid plan selected.' }, { status: 400 });
     }
 
-    const redirectUrl = new URL(redirectPath, baseUrl);
-    console.log(`API /select-plan: User authenticated, redirecting to ${redirectUrl.toString()}`);
-    // Return a NEW redirect response
-    return NextResponse.redirect(redirectUrl.toString());
+    // Update the user's role in the database if a target role is defined
+    if (targetRole) {
+      console.log(`API /select-plan: Attempting to update role for user ${user.id} to ${targetRole}`);
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ role: targetRole })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('API /select-plan Error updating user role:', updateError);
+        // Return an error so the user knows something went wrong.
+        return NextResponse.json({ error: 'Failed to update user profile. Please try again.' }, { status: 500 });
+      }
+      console.log(`API /select-plan: Successfully updated role for user ${user.id} to ${targetRole}`);
+    }
+
+    console.log(`API /select-plan: User authenticated, determined redirect path: ${redirectPath}`);
+    // Return the path in the JSON response
+    return NextResponse.json({ redirectPath });
 
   } catch (error) {
-    console.error('API /select-plan Error reading planKey or creating URL:', error);
-    const url = req.nextUrl.clone();
-    url.pathname = '/pricing'; // Redirect back to pricing on error
-    url.searchParams.set('error', 'plan_selection_failed');
-    // Return a NEW redirect response
-    return NextResponse.redirect(url);
+    console.error('API /select-plan Error processing request:', error);
+    // Return a generic error response
+    return NextResponse.json({ error: 'Failed to process plan selection' }, { status: 500 });
   }
-
-  // Note: The initial 'response' object is not explicitly returned here,
-  // as the function should always return one of the NextResponse.redirect calls.
 }

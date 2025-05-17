@@ -15,6 +15,9 @@ interface ProfileData {
   last_name: string | null;
   stripe_subscription_id: string | null; // Add Stripe fields
   stripe_subscription_status: string | null;
+  // Add plan_type and extra_student_slots if needed on this page, otherwise fetch as needed
+  plan_type?: string | null;
+  extra_student_slots?: number | null;
 }
 
 export default function SettingsPage() {
@@ -30,17 +33,14 @@ export default function SettingsPage() {
   const [updateProfileSuccess, setUpdateProfileSuccess] = useState<string | null>(null);
   const [cancelSubError, setCancelSubError] = useState<string | null>(null);
   const [cancelSubSuccess, setCancelSubSuccess] = useState<string | null>(null);
+  const [isCreatingPortalLink, setIsCreatingPortalLink] = useState(false); // State for portal link loading
+  const [portalError, setPortalError] = useState<string | null>(null); // State for portal link errors
   // State for password change
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
   const [changePasswordSuccess, setChangePasswordSuccess] = useState<string | null>(null);
-  // State for email change (Reverted - Temporarily commented out)
-  // const [newEmail, setNewEmail] = useState('');
-  // const [isChangingEmail, setIsChangingEmail] = useState(false);
-  // const [changeEmailError, setChangeEmailError] = useState<string | null>(null);
-  // const [changeEmailSuccess, setChangeEmailSuccess] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -53,53 +53,76 @@ export default function SettingsPage() {
           throw new Error(sessionError?.message || 'Not authenticated');
         }
         setUser(session.user);
+        console.log("User session fetched successfully. Fetching profile..."); // Log success
+
+        // Declare variables to hold profile data and error
+        let profileData: ProfileData | null = null;
+        let profileError: any = null;
 
         // Fetch profile data including Stripe status
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('first_name, last_name, stripe_subscription_id, stripe_subscription_status') // Fetch Stripe fields
-          .eq('id', session.user.id)
-          .single();
+        try {
+            // Explicitly await the profile fetch
+            const { data, error } = await supabase
+              .from('profiles')
+              .select('first_name, last_name, stripe_subscription_id, stripe_subscription_status, plan_type, extra_student_slots') // Fetch all relevant fields
+              .eq('id', session.user.id)
+              .single();
+            // Assign results to the declared variables
+            profileData = data;
+            profileError = error;
+            console.log("Profile fetch attempt completed.", { profileData, profileError }); // Log result
+        } catch (profileFetchErr) {
+            // Catch errors specifically during the Supabase call execution
+            console.error("Critical error during profile fetch execution:", profileFetchErr);
+            throw profileFetchErr; // Re-throw to be caught by the outer catch block
+        }
 
+        // Process the fetched profile data or error
         if (profileError) {
-          // Handle case where profile might not exist yet (though trigger should create it)
-          if (profileError.code === 'PGRST116') { // code for "Resource Not Found"
-             console.warn("Profile not found for user, might be newly created.");
-             setProfile(null); // Or set default empty profile
+          // Handle known Supabase errors like profile not existing
+          if (profileError.code === 'PGRST116') { // PostgREST code for "Not Found"
+             console.warn("Profile not found for user, setting defaults.");
+             setProfile(null);
              setFirstName('');
              setLastName('');
           } else {
-            throw profileError;
+             // Log and re-throw other unexpected profile errors
+             console.error("Error fetching profile data:", profileError);
+             throw profileError;
           }
         } else if (profileData) {
-          setProfile(profileData); // Store full profile including status
+          // Profile successfully fetched
+          console.log("Profile data found, updating state.");
+          setProfile(profileData);
           setFirstName(profileData.first_name || '');
           setLastName(profileData.last_name || '');
         } else {
-           // This case might occur if RLS prevents row access but doesn't throw an error,
-           // or if the profile truly doesn't exist and the trigger failed.
-           // Logged a warning previously, now just setting defaults.
+           // This case might occur if .single() returns null without an error (unlikely but possible)
+           console.warn("Profile data was unexpectedly null/undefined after fetch without error.");
            setProfile(null);
            setFirstName('');
            setLastName('');
         }
+        console.log("Finished processing profile data."); // Log successful processing
       } catch (err: any) {
-        // More detailed error logging
-        console.error("Error fetching user session or profile:", err);
+        // Catch any error thrown from session fetch or profile fetch/processing
+        console.error("Error in fetchUserData:", err);
         let detailedMessage = "Failed to load user data.";
-        if (err.message) {
-            detailedMessage += ` Error: ${err.message}`;
+        // Attempt to parse Supabase/PostgREST errors more reliably
+        if (typeof err === 'object' && err !== null) {
+            detailedMessage = err.message || detailedMessage;
+            if (err.details) detailedMessage += ` Details: ${err.details}`;
+            if (err.hint) detailedMessage += ` Hint: ${err.hint}`;
+            if (err.code) detailedMessage += ` Code: ${err.code}`; // Include error code if available
+        } else if (err.message) {
+            detailedMessage = err.message; // Fallback for non-object errors
         }
-        // Add details if it's a Supabase error object
-        if (typeof err === 'object' && err !== null && 'details' in err) {
-            detailedMessage += ` Details: ${err.details}`;
-        }
-         if (typeof err === 'object' && err !== null && 'hint' in err) {
-            detailedMessage += ` Hint: ${err.hint}`;
-        }
-        setFetchError(detailedMessage);
+        console.log("Setting fetchError state:", detailedMessage);
+        setFetchError(detailedMessage); // Update the UI with the error
       } finally {
-        setIsLoading(false); // Ensure loading is always set to false
+        // This block always runs, regardless of success or error
+        console.log("fetchUserData finally block reached. Setting isLoading to false.");
+        setIsLoading(false); // Ensure loading state is always turned off
       }
     };
 
@@ -114,122 +137,73 @@ export default function SettingsPage() {
 
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error(sessionError?.message || 'Not authenticated');
-      }
+      if (sessionError || !session) throw new Error(sessionError?.message || 'Not authenticated');
       const token = session.access_token;
 
       const response = await fetch('/api/user/update-profile', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          firstName: firstName,
-          lastName: lastName,
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ firstName, lastName }),
       });
-
       const result = await response.json();
-
-      if (!response.ok) {
-         // Throw an error object compatible with the parsing logic below
-         throw new Error(JSON.stringify(result));
-      }
+      if (!response.ok) throw new Error(JSON.stringify(result));
 
       setUpdateProfileSuccess(result.message || 'Profile updated successfully!');
-      if (profile) {
-        setProfile({ ...profile, first_name: firstName, last_name: lastName });
-      }
+      if (profile) setProfile({ ...profile, first_name: firstName, last_name: lastName });
 
     } catch (err: any) {
       console.error("Update profile error:", err);
-      // Check for structured Zod errors or other API errors
-      if (err.message && typeof err.message === 'string' && err.message.startsWith('{')) {
-         try {
-            const parsedError = JSON.parse(err.message);
-            if (parsedError.error?.details) {
-               const errorMessages = Object.entries(parsedError.error.details)
-                 .map(([field, messages]) => `${field}: ${(messages as string[]).join(', ')}`)
-                 .join('; ');
-               setUpdateProfileError(`Invalid input: ${errorMessages}`);
-            } else if (parsedError.error?.message) {
-                 setUpdateProfileError(parsedError.error.message);
-            } else {
-                 setUpdateProfileError("An unknown error occurred while updating profile.");
-            }
-         } catch (parseError) {
-             setUpdateProfileError(err.message || "An unknown error occurred while updating profile.");
-         }
-      } else {
-          setUpdateProfileError(err.message || "An unknown error occurred while updating profile.");
-      }
+      let errorMessage = "An unknown error occurred while updating profile.";
+      try {
+        const parsedError = JSON.parse(err.message);
+        if (parsedError.error?.details) {
+          errorMessage = `Invalid input: ${Object.entries(parsedError.error.details).map(([field, messages]) => `${field}: ${(messages as string[]).join(', ')}`).join('; ')}`;
+        } else if (parsedError.error?.message) {
+          errorMessage = parsedError.error.message;
+        }
+      } catch (parseError) { errorMessage = err.message || errorMessage; }
+      setUpdateProfileError(errorMessage);
     } finally {
       setIsUpdatingProfile(false);
     }
   };
 
-  // Handler for Subscription Cancellation
   const handleCancelSubscription = async () => {
     if (!profile?.stripe_subscription_id || profile.stripe_subscription_status !== 'active') {
       setCancelSubError("No active subscription found to cancel.");
       return;
     }
-
-    // Optional: Add a confirmation dialog here
-    // if (!confirm("Are you sure you want to cancel your subscription? Access will remain until the end of the current billing period.")) {
-    //   return;
-    // }
-
     setIsCancelingSub(true);
     setCancelSubError(null);
     setCancelSubSuccess(null);
-
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error(sessionError?.message || 'Not authenticated');
-      }
+      if (sessionError || !session) throw new Error(sessionError?.message || 'Not authenticated');
       const token = session.access_token;
 
       const response = await fetch('/api/user/cancel-subscription', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Authorization': `Bearer ${token}` },
       });
-
       const result = await response.json();
-
-      if (!response.ok) {
-         // Throw an error object compatible with the parsing logic below
-         throw new Error(JSON.stringify(result));
-      }
+      if (!response.ok) throw new Error(JSON.stringify(result));
 
       setCancelSubSuccess(result.message || 'Subscription cancelled successfully!');
-      if (profile) {
-        setProfile({ ...profile, stripe_subscription_status: 'canceled' });
-      }
+      if (profile) setProfile({ ...profile, stripe_subscription_status: 'canceled' });
 
     } catch (err: any) {
       console.error("Cancel subscription error:", err);
-       if (err.message && typeof err.message === 'string' && err.message.startsWith('{')) {
-           try {
-               const parsedError = JSON.parse(err.message);
-               setCancelSubError(parsedError.error?.message || "An unknown error occurred during cancellation.");
-           } catch (parseError) {
-                setCancelSubError(err.message || "An unknown error occurred during cancellation.");
-           }
-       } else {
-            setCancelSubError(err.message || "An unknown error occurred during cancellation.");
-       }
+      let errorMessage = "An unknown error occurred during cancellation.";
+      try {
+        const parsedError = JSON.parse(err.message);
+        errorMessage = parsedError.error?.message || errorMessage;
+      } catch (parseError) { errorMessage = err.message || errorMessage; }
+      setCancelSubError(errorMessage);
     } finally {
       setIsCancelingSub(false);
     }
   };
 
-  // Handler for Password Change
   const handleChangePassword = async (e: FormEvent) => {
       e.preventDefault();
       setIsChangingPassword(true);
@@ -238,126 +212,87 @@ export default function SettingsPage() {
 
       if (newPassword.length < 6) {
         setChangePasswordError('Password must be at least 6 characters long.');
-        setIsChangingPassword(false);
-        return;
+        setIsChangingPassword(false); return;
       }
       if (newPassword !== confirmNewPassword) {
         setChangePasswordError('Passwords do not match.');
-        setIsChangingPassword(false);
-        return;
+        setIsChangingPassword(false); return;
       }
 
       try {
           const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-          if (sessionError || !session) {
-            throw new Error(sessionError?.message || 'Not authenticated');
-          }
+          if (sessionError || !session) throw new Error(sessionError?.message || 'Not authenticated');
           const token = session.access_token;
 
           const response = await fetch('/api/user/change-password', {
               method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({ newPassword: newPassword }),
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ newPassword }),
           });
-
           const result = await response.json();
-
-          if (!response.ok) {
-              // Throw an error object compatible with the parsing logic below
-              throw new Error(JSON.stringify(result));
-          }
+          if (!response.ok) throw new Error(JSON.stringify(result));
 
           setChangePasswordSuccess(result.message || 'Password updated successfully!');
           setNewPassword('');
           setConfirmNewPassword('');
-          // Optionally clear success message after delay
           setTimeout(() => setChangePasswordSuccess(null), 3000);
 
       } catch (err: any) {
           console.error("Change password error:", err);
-          if (err.message && typeof err.message === 'string' && err.message.startsWith('{')) {
-              try {
-                  const parsedError = JSON.parse(err.message);
-                  setChangePasswordError(parsedError.error?.message || "An unknown error occurred while changing password.");
-              } catch (parseError) {
-                   setChangePasswordError(err.message || "An unknown error occurred while changing password.");
-              }
-          } else {
-               setChangePasswordError(err.message || "An unknown error occurred while changing password.");
-          }
+          let errorMessage = "An unknown error occurred while changing password.";
+          try {
+              const parsedError = JSON.parse(err.message);
+              errorMessage = parsedError.error?.message || errorMessage;
+          } catch (parseError) { errorMessage = err.message || errorMessage; }
+          setChangePasswordError(errorMessage);
       } finally {
           setIsChangingPassword(false);
       }
   };
 
-   // Handler for Email Change (Reverted - Temporarily commented out)
-   /*
-   const handleEmailChange = async (e: FormEvent) => {
-       e.preventDefault();
-       setIsChangingEmail(true);
-       setChangeEmailError(null);
-       setChangeEmailSuccess(null);
+  // Handler for redirecting to Stripe Customer Portal
+  const redirectToCustomerPortal = async () => {
+    setIsCreatingPortalLink(true);
+    setPortalError(null);
+    console.log("redirectToCustomerPortal started."); // Log function start
+    try {
+      console.log("Attempting to get session for portal link..."); // Log start
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        console.error("Portal Link Error: Failed to get session", sessionError); // Log session error
+        throw new Error(sessionError?.message || 'Not authenticated');
+      }
+      const token = session.access_token;
+      console.log("Session obtained. Calling create-portal-link API..."); // Log API call start
 
-       if (!newEmail || !/\S+@\S+\.\S+/.test(newEmail)) {
-           setChangeEmailError('Please enter a valid email address.');
-           setIsChangingEmail(false);
-           return;
-       }
-       // Add null check for user before accessing email
-       if (user && newEmail === user.email) {
-           setChangeEmailError('New email cannot be the same as the current email.');
-           setIsChangingEmail(false);
-           return;
-       }
+      const response = await fetch('/api/user/create-portal-link', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+      });
+      console.log("API response received:", response.status, response.statusText); // Log API response status
 
-       try {
-           const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-           if (sessionError || !session) {
-               throw new Error(sessionError?.message || 'Not authenticated');
-           }
-           const token = session.access_token;
+      const result = await response.json();
+      console.log("API response JSON parsed:", result); // Log parsed JSON
 
-           const response = await fetch('/api/user/change-email', {
-               method: 'POST',
-               headers: {
-                   'Content-Type': 'application/json',
-                   'Authorization': `Bearer ${token}`
-               },
-               body: JSON.stringify({ newEmail: newEmail }),
-           });
+      if (!response.ok) {
+        console.error("Portal Link Error: API response not OK.", result); // Log non-OK response
+        throw new Error(result.error?.message || 'Failed to create portal link.');
+      }
 
-           const result = await response.json();
+      // Redirect the user to the Stripe portal URL
+      console.log("API response OK. Redirecting to:", result.url); // Log redirect URL
+      window.location.assign(result.url);
+      // No need to set loading false here as the page navigates away
 
-           if (!response.ok) {
-               // Use the error message from the API response if available
-               throw new Error(result.error?.message || JSON.stringify(result));
-           }
-
-           setChangeEmailSuccess(result.message || 'Confirmation email sent to the new address. Please check your inbox.');
-           setNewEmail(''); // Clear input field
-           // Optionally clear success message after delay
-           setTimeout(() => setChangeEmailSuccess(null), 5000);
-
-       } catch (err: any) {
-           console.error("Change email error:", err);
-           // Try to parse JSON error first
-           let errorMessage = "An unknown error occurred while changing email.";
-           try {
-               const parsedError = JSON.parse(err.message);
-               errorMessage = parsedError.error?.message || parsedError.message || errorMessage;
-           } catch (parseError) {
-               // If parsing fails, use the original message if it exists
-               errorMessage = err.message || errorMessage;
-           }
-           setChangeEmailError(errorMessage);
-       } finally {
-           setIsChangingEmail(false);
-       }
-   };
-   */
+    } catch (err: any) {
+      console.error("Create portal link error caught:", err); // Log caught error
+      setPortalError(err.message || "Could not open billing management.");
+      setIsCreatingPortalLink(false); // Set loading false only on error
+    }
+    // No finally block needed for loading state if redirect is expected
+  };
 
 
   return (
@@ -409,29 +344,11 @@ export default function SettingsPage() {
                  <form onSubmit={handleChangePassword} className="space-y-4">
                     <div>
                         <label htmlFor="newPassword" className="block text-sm font-medium text-gray-300 mb-1">New Password</label>
-                        <Input
-                          id="newPassword"
-                          type="password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          required
-                          placeholder="Enter new password (min. 6 chars)"
-                          className="w-full bg-gray-800 border-gray-700 text-white rounded-md py-2 px-3"
-                          autoComplete="new-password"
-                        />
+                        <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required placeholder="Enter new password (min. 6 chars)" className="w-full bg-gray-800 border-gray-700 text-white rounded-md py-2 px-3" autoComplete="new-password" />
                     </div>
                     <div>
                         <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-gray-300 mb-1">Confirm New Password</label>
-                        <Input
-                          id="confirmNewPassword"
-                          type="password"
-                          value={confirmNewPassword}
-                          onChange={(e) => setConfirmNewPassword(e.target.value)}
-                          required
-                          placeholder="Confirm new password"
-                          className="w-full bg-gray-800 border-gray-700 text-white rounded-md py-2 px-3"
-                          autoComplete="new-password"
-                        />
+                        <Input id="confirmNewPassword" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} required placeholder="Confirm new password" className="w-full bg-gray-800 border-gray-700 text-white rounded-md py-2 px-3" autoComplete="new-password" />
                     </div>
                     {changePasswordError && <p className="text-red-400 text-sm">{changePasswordError}</p>}
                     {changePasswordSuccess && <p className="text-green-400 text-sm">{changePasswordSuccess}</p>}
@@ -441,72 +358,67 @@ export default function SettingsPage() {
                  </form>
               </div>
 
-               {/* Email Change Section (Reverted - Temporarily commented out) */}
-               {/*
-               <div className="p-6 bg-gray-900/80 border border-gray-700/50 rounded-xl shadow-lg">
-                 <h2 className="text-2xl font-semibold text-white mb-4">Change Email Address</h2>
-                 <p className="text-sm text-gray-400 mb-4">
-                   Current Email: <span className="font-medium">{user?.email}</span>
-                 </p>
-                 <p className="text-sm text-gray-400 mb-4">
-                   Enter the new email address you want to use. A confirmation link will be sent to both your old and new email addresses.
-                 </p>
-                 <form onSubmit={handleEmailChange} className="space-y-4">
-                     <div>
-                         <label htmlFor="newEmail" className="block text-sm font-medium text-gray-300 mb-1">New Email Address</label>
-                         <Input
-                           id="newEmail"
-                           type="email"
-                           value={newEmail}
-                           onChange={(e) => setNewEmail(e.target.value)}
-                           required
-                           placeholder="Enter new email address"
-                           className="w-full bg-gray-800 border-gray-700 text-white rounded-md py-2 px-3"
-                           autoComplete="email"
-                         />
-                     </div>
-                     {changeEmailError && <p className="text-red-400 text-sm">{changeEmailError}</p>}
-                     {changeEmailSuccess && <p className="text-green-400 text-sm">{changeEmailSuccess}</p>}
-                     <Button type="submit" disabled={isChangingEmail || !user} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md transition-all duration-300 shadow-md disabled:opacity-50">
-                         {isChangingEmail ? "Sending..." : "Change Email"}
-                     </Button>
-                 </form>
-               </div>
-               */}
-
-
               {/* Subscription Management Section */}
               <div className="p-6 bg-gray-900/80 border border-gray-700/50 rounded-xl shadow-lg">
-                <h2 className="text-2xl font-semibold text-white mb-4">Subscription</h2>
+                <h2 className="text-2xl font-semibold text-white mb-4">Subscription & Billing</h2>
                 {profile?.stripe_subscription_id ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4"> {/* Increased spacing */}
+                    <p className="text-gray-300">
+                      Plan: <span className="font-medium text-indigo-300">{profile.plan_type ? profile.plan_type.charAt(0).toUpperCase() + profile.plan_type.slice(1) : 'Unknown'}</span>
+                      {profile.extra_student_slots && profile.extra_student_slots > 0 && (
+                        <span className="ml-2 text-sm text-gray-400">(+ {profile.extra_student_slots} extra student slot{profile.extra_student_slots > 1 ? 's' : ''})</span>
+                      )}
+                    </p>
                     <p className="text-gray-300">
                       Status: <span className={`font-medium ${
                         profile.stripe_subscription_status === 'active' ? 'text-green-400' :
                         profile.stripe_subscription_status === 'canceled' ? 'text-yellow-400' :
-                        'text-red-400' // e.g., past_due
+                        'text-red-400' // e.g., past_due, incomplete
                       }`}>
-                        {profile.stripe_subscription_status ? profile.stripe_subscription_status.charAt(0).toUpperCase() + profile.stripe_subscription_status.slice(1) : 'Unknown'}
+                        {profile.stripe_subscription_status ? profile.stripe_subscription_status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Unknown'}
                       </span>
                     </p>
-                    {profile.stripe_subscription_status === 'active' && (
-                      <div>
-                        <Button
-                          variant="destructive"
-                          onClick={handleCancelSubscription}
-                          disabled={isCancelingSub}
-                        >
-                          {isCancelingSub ? "Canceling..." : "Cancel Subscription"}
-                        </Button>
-                        {cancelSubError && <p className="text-red-400 text-sm mt-2">{cancelSubError}</p>}
-                        {cancelSubSuccess && <p className="text-green-400 text-sm mt-2">{cancelSubSuccess}</p>}
-                        <p className="text-xs text-gray-500 mt-2">Cancellation is effective at the end of the current billing period.</p>
-                      </div>
-                    )}
+
+                    {/* Buttons Side-by-Side */}
+                    <div className="flex flex-wrap gap-4 items-start">
+                       {/* Manage Billing Button */}
+                       <div>
+                          <Button
+                            onClick={redirectToCustomerPortal}
+                            disabled={isCreatingPortalLink}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            {isCreatingPortalLink ? "Loading..." : "Manage Billing & Add-ons"}
+                          </Button>
+                          {portalError && <p className="text-red-400 text-xs mt-1">{portalError}</p>}
+                          <p className="text-xs text-gray-500 mt-1">Update payment method, view invoices, or add/remove student slots.</p>
+                       </div>
+
+                       {/* Cancel Button (only if active) */}
+                       {profile.stripe_subscription_status === 'active' && (
+                         <div>
+                           <Button
+                             variant="destructive"
+                             onClick={handleCancelSubscription}
+                             disabled={isCancelingSub}
+                           >
+                             {isCancelingSub ? "Canceling..." : "Cancel Subscription"}
+                           </Button>
+                           {cancelSubError && <p className="text-red-400 text-xs mt-1">{cancelSubError}</p>}
+                           {cancelSubSuccess && <p className="text-green-400 text-xs mt-1">{cancelSubSuccess}</p>}
+                           <p className="text-xs text-gray-500 mt-1">Cancellation is effective at the end of the current billing period.</p>
+                         </div>
+                       )}
+                    </div>
+
                      {profile.stripe_subscription_status === 'canceled' && (
-                       <p className="text-sm text-gray-400">Your subscription has been canceled. Access will continue until the end of the current billing period.</p>
+                       <p className="text-sm text-yellow-400 bg-yellow-900/30 border border-yellow-700 rounded p-3">Your subscription has been canceled and will end soon. Access continues until the end of the billing period. You can reactivate via the 'Manage Billing' portal.</p>
                      )}
-                     {/* Add logic here to handle other statuses like 'past_due' or offer reactivation */}
+                     {/* Add logic here to handle other statuses like 'past_due', 'incomplete' */}
+                     {(profile.stripe_subscription_status === 'past_due' || profile.stripe_subscription_status === 'incomplete') && (
+                        <p className="text-sm text-red-400 bg-red-900/30 border border-red-700 rounded p-3">There's an issue with your subscription payment. Please update your payment method via the 'Manage Billing' portal.</p>
+                     )}
+
                   </div>
                 ) : (
                   <div>

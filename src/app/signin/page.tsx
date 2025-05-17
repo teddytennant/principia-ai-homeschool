@@ -1,18 +1,47 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { signIn } from "next-auth/react";
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function SignIn() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const returnUrl = searchParams.get('returnUrl');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (returnUrl) {
+      console.log('Return URL detected:', returnUrl);
+    }
+  }, [returnUrl]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would handle the sign-in logic with username and password
-    signIn("credentials", { username, password, redirect: false });
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await signIn("credentials", { username, password, redirect: false });
+      if (result?.error) {
+        setError('Invalid username or password. Please try again.');
+        setIsLoading(false);
+      } else {
+        if (returnUrl) {
+          router.push(decodeURIComponent(returnUrl));
+        } else {
+          router.push('/parent/dashboard');
+        }
+        setIsLoading(false);
+      }
+    } catch (err) {
+      setError('An error occurred during sign-in. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -45,7 +74,10 @@ export default function SignIn() {
               className="w-full bg-gray-800 border-gray-700 text-white rounded-md py-3" 
             />
           </div>
-          <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-md">Sign In</Button>
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <Button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-md">
+            {isLoading ? 'Signing In...' : 'Sign In'}
+          </Button>
         </form>
       </div>
     </div>

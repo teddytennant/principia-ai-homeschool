@@ -4,7 +4,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 // --- START: Paywall Toggle ---
 // Set this to true to enable subscription checks, false to disable them globally.
-export const ENABLE_PAYWALL_CHECK = false; // Export the constant
+export const ENABLE_PAYWALL_CHECK = true; // Enabled paywall check
 // --- END: Paywall Toggle ---
 
 // Exclude certain paths from ALL checks (auth)
@@ -38,6 +38,7 @@ const PUBLIC_ROUTES = [
   '/help', // Added help page
   '/forgot-password', // Allow access to forgot password page
   '/reset-password', // Allow access to reset password page
+  '/payment/success', // Allow access to payment success page for post-payment processing
   // Add other public informational pages here
 ];
 
@@ -57,7 +58,15 @@ const TEACHER_ROUTES = [
 // Routes specifically for students
 const STUDENT_ROUTES = [
     '/chat', // Assuming chat is student-only
-    // Add other student-specific routes
+     // Add other student-specific routes
+];
+
+// Routes specifically for parents
+const PARENT_ROUTES = [
+    '/parent/dashboard',
+    '/parent/settings', // Assuming settings exist
+    '/parent/students', // Assuming student management exists for parents
+    // Add other parent-specific routes
 ];
 
 // Routes that require an active subscription (can overlap with others)
@@ -66,6 +75,9 @@ const SUBSCRIPTION_ROUTES = [
   '/teacher/dashboard',
   '/teacher/settings',
   '/teacher/students',
+  '/parent/dashboard', // Add parent routes that require subscription
+  '/parent/settings',
+  '/parent/students',
   // Add other routes that require payment
 ];
 
@@ -147,6 +159,12 @@ export async function middleware(req: NextRequest) {
   if (userError || !user) { // Check for error or no user
     // User is not logged in or session is invalid
     if (!isPublicRoute) {
+      // Check if coming from payment success with a specific query parameter
+      const fromPayment = req.nextUrl.searchParams.get('fromPayment') === 'true';
+      if (fromPayment && pathname.startsWith('/parent/dashboard')) {
+        console.log(`Bypassing auth redirect for user from payment success to ${pathname}`);
+        return response; // Allow access temporarily
+      }
       // Redirect to signin if trying to access a protected route
       const url = req.nextUrl.clone();
       url.pathname = '/signin';
@@ -157,11 +175,15 @@ export async function middleware(req: NextRequest) {
   } else {
     // User is logged in
 
+    // Explicitly refresh session again right before profile check to mitigate potential timing issues
+    await supabase.auth.refreshSession();
+
     // Fetch user role (needed for role-based access and potentially redirection)
     let userRole: string | null = null;
+    console.log(`Middleware: Fetching profile for user ${user.id} after second refresh.`); // Add log
     const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, subscription_status') // Fetch role and subscription status
+        .select('role, stripe_subscription_status') // Use correct column name
         .eq('id', user.id)
         .single();
 
@@ -175,7 +197,7 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(url);
     }
     userRole = profile?.role || null;
-    const subscriptionStatus = profile?.subscription_status || null;
+    const subscriptionStatus = profile?.stripe_subscription_status || null; // Use correct column name
 
     // Redirect logged-in users away from signin/signup pages
     if (isAuthRoute) {
@@ -189,18 +211,30 @@ export async function middleware(req: NextRequest) {
     // --- Role-Based Access Control ---
     const isTeacherRoute = TEACHER_ROUTES.some(route => pathname.startsWith(route));
     const isStudentRoute = STUDENT_ROUTES.some(route => pathname.startsWith(route));
+    const isParentRoute = PARENT_ROUTES.some(route => pathname.startsWith(route)); // Check for parent routes
 
     if (isTeacherRoute && userRole !== 'teacher') {
-        console.log(`Redirecting non-teacher user from teacher route ${pathname}`);
+        console.log(`Redirecting non-teacher user (${userRole}) from teacher route ${pathname}`);
         const url = req.nextUrl.clone();
-        url.pathname = '/'; // Or maybe '/chat' if students have access there
+        // Redirect based on actual role if possible, otherwise default
+        url.pathname = userRole === 'parent' ? '/parent/dashboard' : userRole === 'student' ? '/chat' : '/';
         return NextResponse.redirect(url);
     }
 
     if (isStudentRoute && userRole !== 'student') {
-         console.log(`Redirecting non-student user from student route ${pathname}`);
+         console.log(`Redirecting non-student user (${userRole}) from student route ${pathname}`);
          const url = req.nextUrl.clone();
-         url.pathname = '/'; // Or maybe '/teacher/dashboard' if it's a teacher
+         // Redirect based on actual role if possible, otherwise default
+         url.pathname = userRole === 'parent' ? '/parent/dashboard' : userRole === 'teacher' ? '/teacher/dashboard' : '/';
+         return NextResponse.redirect(url);
+    }
+
+    // Add check for parent routes
+    if (isParentRoute && userRole !== 'parent') {
+         console.log(`Redirecting non-parent user (${userRole}) from parent route ${pathname}`);
+         const url = req.nextUrl.clone();
+         // Redirect based on actual role if possible, otherwise default
+         url.pathname = userRole === 'teacher' ? '/teacher/dashboard' : userRole === 'student' ? '/chat' : '/';
          return NextResponse.redirect(url);
     }
 

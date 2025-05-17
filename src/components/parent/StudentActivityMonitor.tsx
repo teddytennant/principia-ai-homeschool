@@ -148,24 +148,36 @@ const fetchCurrentStudents = async (): Promise<Student[]> => {
         }
 
         if (fetchError) {
-            // Improved error logging - Use fetchError variable
-            console.error("Error fetching student profiles from Supabase. Raw error object:", fetchError);
+            // Calculate errorMessage and details first for better logging
             let errorMessage = "Unknown error fetching student profiles.";
+            let errorDetails = ""; // Add details if available
             if (fetchError instanceof Error) {
                 errorMessage = fetchError.message;
-            } else if (typeof fetchError === 'object' && fetchError !== null && 'message' in fetchError) {
-                // Attempt to extract message if it's a Supabase-like error object
-                errorMessage = String(fetchError.message);
-            } else {
+                errorDetails = fetchError.stack || "No stack trace available"; // Include stack trace
+            } else if (typeof fetchError === 'object' && fetchError !== null) {
+                 // Attempt to extract message if it's a Supabase-like error object or other object
+                errorMessage = String((fetchError as any).message || "No 'message' property found on error object");
                 try {
-                    // Try to stringify if it's an object, otherwise convert directly
-                    errorMessage = typeof fetchError === 'object' ? JSON.stringify(fetchError) : String(fetchError);
+                    // Try to stringify for more details, handle potential circular references
+                    errorDetails = JSON.stringify(fetchError, Object.getOwnPropertyNames(fetchError));
                 } catch {
-                    errorMessage = String(fetchError); // Fallback to simple string conversion
+                    errorDetails = "Could not stringify error object.";
                 }
+            } else {
+                 // Handle non-object errors (e.g., strings, numbers)
+                 errorMessage = String(fetchError);
+                 errorDetails = "Error is not an object.";
             }
-            console.error("Processed error message:", errorMessage);
+
+            // Log the processed message and details, along with the raw object
+            console.error(
+                "Error fetching student profiles from Supabase. Message:", errorMessage, 
+                "Details:", errorDetails, 
+                "Raw Object:", fetchError // Keep raw object for inspection if needed
+            );
+
             // Store error message to display in UI via state update (will be handled in component)
+            // The existing return [] is correct here.
             return [];
         }
 

@@ -1,7 +1,7 @@
 'use client'; // Use client for animations and Stripe interaction
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useRouter, usePathname } from 'next/navigation'; // Import useRouter and usePathname
 import { motion } from 'framer-motion';
 import { CheckCircle, X } from 'lucide-react';
 import { loadStripe, Stripe } from '@stripe/stripe-js'; // Import Stripe
@@ -142,6 +142,7 @@ export default function PricingPage() {
   const [isLoading, setIsLoading] = useState(false); // State for loading indicator
   const [error, setError] = useState<string | null>(null); // State for errors
   const router = useRouter(); // Initialize router
+  const currentPathname = usePathname(); // Get current pathname
 
   // Checkout handler function
   const handleCheckout = async (priceId: string, planKey: 'family' | 'coop' | 'individual') => {
@@ -169,23 +170,40 @@ export default function PricingPage() {
           body: JSON.stringify({ planKey }), // Send the selected plan key
         });
 
-        // Check if the API responded with an error (e.g., user wasn't actually authenticated server-side)
-        if (!apiResponse.ok || apiResponse.redirected) {
-           // If redirected, the browser will follow it automatically.
-           // If not ok, maybe show an error, but typically the redirect handles it.
-           console.log('API call finished or redirected.');
+        // API now returns JSON, not a redirect. We handle navigation manually.
+        const data = await apiResponse.json();
+
+        if (apiResponse.ok && data.redirectPath) {
+          // Success: API returned a redirect path
+          console.log('API call successful, navigating to:', data.redirectPath);
+          router.push(data.redirectPath); // Use router to navigate
+          // Don't need to setIsLoading(false) here as navigation will unmount the component
+          return; // Stop further execution in this function after navigation starts
         } else {
-           // Handle unexpected non-redirect response if necessary
-           setError('Plan selection failed. Please try again.');
-           console.error('Unexpected response from /api/select-plan:', apiResponse);
+          // Error: API returned an error or unexpected response
+          console.error('API call failed or returned unexpected data:', { status: apiResponse.status, data });
+          // If the API provided a specific redirect path for the error (e.g., /signin for 401)
+          if (data.redirectPath) {
+             console.log('API error included redirect path, navigating to:', data.redirectPath);
+             router.push(data.redirectPath);
+             return; // Stop further execution
+          } else {
+             // Otherwise, display the error message on the current page
+             setError(data.error || 'Plan selection failed. Please try again.');
+          }
         }
       } catch (apiError) {
-        console.error('Error calling /api/select-plan:', apiError);
-        setError('An error occurred during plan selection.');
+        // Handle network errors or issues reaching the API (fetch itself failed)
+        console.error('Network error calling /api/select-plan:', apiError);
+        setError('An error occurred connecting to the server. Please check your connection and try again.');
       } finally {
-        setIsLoading(false);
+        // Ensure loading indicator is turned off ONLY if we haven't started navigation
+        // Check if we are still mounted and an error occurred or navigation didn't happen
+        if (currentPathname && !currentPathname.startsWith('/parent/dashboard') && !currentPathname.startsWith('/teacher/dashboard') && !currentPathname.startsWith('/chat') && !currentPathname.startsWith('/signin')) {
+           setIsLoading(false);
+        }
       }
-      return; // Stop execution here, let the API handle the redirect
+      // No explicit return needed if navigation didn't happen
     }
     // --- End Paywall Disabled Logic ---
 
@@ -205,11 +223,22 @@ export default function PricingPage() {
     }
 
     try {
-      // 1. Create a checkout session on your server
+      // Get user session for auth token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        // Redirect to sign-up page if user is not authenticated
+        router.push('/signup');
+        setIsLoading(false);
+        return;
+      }
+      const token = session.access_token;
+
+      // 1. Create a checkout session on your server, passing the auth token
       const response = await fetch('/api/checkout_sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`, // Add Authorization header
         },
         body: JSON.stringify({ priceId }),
       });
@@ -256,9 +285,11 @@ export default function PricingPage() {
          "Flexible curriculum options",
          "Socratic Tutor sessions (Fair Use: 500 messages/day)",
          "Priority family support",
+         "Add extra students ($10/mo each)", // Added add-on info
        ],
       savings: billing === 'yearly' ? `Save $89/year` : undefined,
-      ctaText: isLoading ? "Processing..." : `Start Family Plan`, // Update CTA text when loading
+      // Corrected ctaText - removed extraneous log text
+      ctaText: isLoading ? "Processing..." : `Start Family Plan`,
       // Removed ctaHref
       isFeatured: true,
       isContact: false,
@@ -271,11 +302,12 @@ export default function PricingPage() {
       description: "Empower your homeschool co-op with group management and collaboration.",
       features: [
         "Up to 25 learners",
-        "Group assignments & projects",
+        
          "Co-op admin dashboard",
          "Shared resources & lesson planning",
          "Socratic Tutor sessions (Fair Use: 500 messages/day)",
          "Priority onboarding for co-ops",
+         "Add extra students ($10/mo each)", // Added add-on info
        ],
       savings: billing === 'yearly' ? `Save $349/year` : undefined,
       ctaText: isLoading ? "Processing..." : `Start Co-op Plan`, // Update CTA text when loading

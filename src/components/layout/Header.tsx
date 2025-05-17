@@ -136,7 +136,7 @@ export function Header() {
               <Link href="/signin/student">
                 <Button variant="secondary" size="sm">Student Sign In</Button>
               </Link>
-              <Link href="/signin/teacher">
+              <Link href="/signin/parent">
                 <Button variant="secondary" size="sm">Parent Sign In</Button>
               </Link>
               <Link href="/signup">

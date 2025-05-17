@@ -2,9 +2,10 @@
 
 import React, { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { UploadCloud, FileText, X } from 'lucide-react'; // Icons for UI
+import { UploadCloud, FileText, X, Loader2 } from 'lucide-react'; // Icons for UI + Loader
 import { useTeacherSettings, CurriculumItem } from '@/lib/teacher-settings-context';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid for unique IDs
+import { supabase } from '@/lib/supabaseClient'; // Import supabase to get JWT
 
  // Local interface for files being uploaded (before content extraction)
 interface UploadingFile {
@@ -13,6 +14,8 @@ interface UploadingFile {
     size: number;
     type: string;
     file: File; // The actual file object for content extraction
+    status: 'pending' | 'uploading' | 'summarizing' | 'failed'; // Add status
+    errorMessage?: string; // Optional error message
 }
 
 type CurriculumUploaderProps = React.HTMLAttributes<HTMLDivElement>;
@@ -24,13 +27,29 @@ const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderPr
         const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
         const [isDragging, setIsDragging] = useState(false);
 
+        // Helper to update the status of a specific uploading file
+        const updateFileStatus = (id: string, status: UploadingFile['status'], errorMessage?: string) => {
+            setUploadingFiles(prev => prev.map(f => f.id === id ? { ...f, status, errorMessage } : f));
+        };
+
         const processFiles = useCallback(async (files: File[]) => {
+            // Get JWT token for API calls
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !session) {
+                console.error("Authentication error:", sessionError?.message || 'No session');
+                // Handle error appropriately, maybe show a message to the user
+                return;
+            }
+            const token = session.access_token;
+
+
             const newUploadingFiles = files.map((file) => ({
                 id: uuidv4(),
                 name: file.name,
                 size: file.size,
                 type: file.type,
                 file,
+                status: 'pending' as 'pending', // Initial status
             }));
 
             setUploadingFiles(prev => [...prev, ...newUploadingFiles]);
@@ -44,28 +63,58 @@ const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderPr
                 });
             };
 
-            // Process each file to extract content and summarize
+            // Process each file: read, summarize, add to context
             for (const uploadingFile of newUploadingFiles) {
                 try {
-                    // Extract content from the file
-                    const content = await readFileContent(uploadingFile.file);
-                    // Create a curriculum item and add it to the context
+                    updateFileStatus(uploadingFile.id, 'uploading'); // Mark as uploading (reading content)
+                    const fullContent = await readFileContent(uploadingFile.file);
+
+                    // Check content length before summarizing
+                    if (fullContent.length < 50) {
+                        throw new Error("Content too short to summarize effectively.");
+                    }
+
+                    updateFileStatus(uploadingFile.id, 'summarizing'); // Mark as summarizing
+
+                    // Call the summarization API
+                    const summarizeResponse = await fetch('/api/summarize', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}` // Pass JWT
+                        },
+                        body: JSON.stringify({ content: fullContent }),
+                    });
+
+                    const summarizeResult = await summarizeResponse.json();
+
+                    if (!summarizeResponse.ok) {
+                        throw new Error(summarizeResult.error?.message || `Summarization failed (${summarizeResponse.status})`);
+                    }
+
+                    const summary = summarizeResult.summary;
+
+                    // Create a curriculum item with the SUMMARY
                     const curriculumItem: CurriculumItem = {
                         id: uploadingFile.id,
                         name: uploadingFile.name,
-                        content: content,
+                        content: summary, // Store the summary, not the full content
                         type: uploadingFile.type,
+                        size: uploadingFile.size, // Keep original size for info
                         uploadedAt: new Date()
                     };
-                    addCurriculumItem(curriculumItem);
+                    addCurriculumItem(curriculumItem); // Add item with summary to context
+
+                    // Remove from uploading list on success
                     setUploadingFiles(prev => prev.filter(file => file.id !== uploadingFile.id));
-                } catch (error) {
+
+                } catch (error: any) {
                     console.error(`Error processing file ${uploadingFile.name}:`, error);
-                    // Keep the file in the uploading state but mark it as failed
-                    // In a real app, you'd update the UI to show the error
+                    updateFileStatus(uploadingFile.id, 'failed', error.message || "An unknown error occurred");
+                    // Keep the failed file in the list to show the error
                 }
             }
-        }, [addCurriculumItem, setUploadingFiles]);
+        }, [addCurriculumItem, setUploadingFiles]); // Dependencies
 
         const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
             if (event.target.files) {
@@ -170,15 +219,10 @@ const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderPr
                 {uploadingFiles.length > 0 && (
                     <div className="space-y-3 pt-6 border-t border-gray-700 mt-6">
                         <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-medium text-gray-300">Uploading Your Curriculum</h4>
-                            <span className="text-xs text-blue-400 animate-pulse">Sending to AI for summarization...</span>
+                            <h4 className="text-sm font-medium text-gray-300">Processing Files</h4>
+                            {/* Optional: Add overall progress if needed */}
                         </div>
-                        <div className="w-full bg-gray-700/50 rounded-full h-2.5 mb-4">
-                            <div 
-                                className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300 ease-out" 
-                                style={{ width: '30%' }}
-                            ></div>
-                        </div>
+                        {/* Removed overall progress bar, showing individual status instead */}
                         <ul className="max-h-48 overflow-y-auto space-y-1 pr-2">
                             {uploadingFiles.map((file) => (
                                 <li
@@ -192,7 +236,29 @@ const CurriculumUploader = React.forwardRef<HTMLDivElement, CurriculumUploaderPr
                                             {file.size ? `(${formatBytes(file.size)})` : ''}
                                         </span>
                                     </div>
-                                    <div className="flex-shrink-0 text-xs text-blue-400">Uploading...</div>
+                                    <div className="flex-shrink-0 text-xs flex items-center gap-1.5">
+                                        {file.status === 'pending' && <span className="text-gray-400">Pending...</span>}
+                                        {file.status === 'uploading' && <span className="text-blue-400">Reading...</span>}
+                                        {file.status === 'summarizing' && (
+                                            <>
+                                                <Loader2 className="h-3 w-3 animate-spin text-indigo-400" />
+                                                <span className="text-indigo-400">Summarizing...</span>
+                                            </>
+                                        )}
+                                        {file.status === 'failed' && (
+                                            <span className="text-red-400" title={file.errorMessage}>Failed</span>
+                                        )}
+                                        {/* Button to remove failed uploads */}
+                                        {file.status === 'failed' && (
+                                             <button
+                                                onClick={() => setUploadingFiles(prev => prev.filter(f => f.id !== file.id))}
+                                                className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded-full hover:bg-gray-600/30"
+                                                aria-label={`Remove failed upload ${file.name}`}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </li>
                             ))}
                         </ul>

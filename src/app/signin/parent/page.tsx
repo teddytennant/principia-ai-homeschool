@@ -9,7 +9,7 @@ import { Footer } from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabaseClient';
 import { Input } from "@/components/ui/input"; // Import Input component
 
-export default function TeacherSignIn() { // Renamed component
+export default function ParentSignIn() { // Renamed component to ParentSignIn
   const [email, setEmail] = useState(''); // Changed state variable name for clarity
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -46,26 +46,26 @@ export default function TeacherSignIn() { // Renamed component
 
         if (profileError) {
           setIsLoading(false);
-          setError("Warning: Unable to verify teacher status due to error: " + profileError.message + "."); // Updated error message context
+          setError("Warning: Unable to verify parent status due to error: " + profileError.message + "."); // Updated error message context to parent
           await supabase.auth.signOut();
         } else if (!profileDataArray || profileDataArray.length === 0) {
           setIsLoading(false);
           setError("No profile found for this account. Please contact support.");
           await supabase.auth.signOut();
-        } else if (profileDataArray[0].role !== 'teacher') { // Check for 'teacher' role
+        } else if (profileDataArray[0].role !== 'parent') { // Check for 'parent' role
           setIsLoading(false);
-          setError("Access denied: This account is registered as '" + (profileDataArray[0].role || 'unknown') + "', not as a teacher."); // Updated error message
+          setError("Access denied: This account is registered as '" + (profileDataArray[0].role || 'unknown') + "', not as a parent."); // Updated error message to parent
           await supabase.auth.signOut();
         } else {
-          // Role is teacher, proceed
+          // Role is parent, proceed
           setTimeout(() => {
-            console.log("Attempting redirect to teacher dashboard..."); // Updated log message
+            console.log("Attempting redirect to parent dashboard..."); // Updated log message to parent
             // Set role cookie for middleware
             // Set access token and role cookies for middleware
             const accessToken = data.session.access_token;
             document.cookie = `sb-access-token=${accessToken}; path=/; SameSite=Lax; max-age=86400`; // Set access token cookie
-            document.cookie = "role=teacher; path=/; SameSite=Lax; max-age=86400"; // Set role cookie to 'teacher'
-            window.location.replace('/teacher/dashboard'); // Redirect to teacher dashboard
+            document.cookie = "role=parent; path=/; SameSite=Lax; max-age=86400"; // Set role cookie to 'parent'
+            window.location.replace('/parent/dashboard'); // Redirect to parent dashboard
           }, 100);
         }
       } catch (err) {
@@ -91,8 +91,8 @@ export default function TeacherSignIn() { // Renamed component
           className="w-full max-w-md p-8 space-y-8 bg-gray-900/80 border border-gray-700/50 rounded-xl shadow-lg shadow-indigo-500/20"
         >
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-white mb-2">Teacher Sign In</h1> {/* Updated title */}
-            <p className="text-gray-400">Sign in to manage your classes and students.</p> {/* Updated description */}
+            <h1 className="text-3xl font-bold text-white mb-2">Parent Sign In</h1> {/* Updated title to Parent */}
+            <p className="text-gray-400">Sign in to manage your students.</p> {/* Updated description */}
           </div>
 
           {error && (

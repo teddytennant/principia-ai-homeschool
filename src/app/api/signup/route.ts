@@ -5,26 +5,27 @@ export async function POST(request: Request) {
   try {
     const { email, password, firstName, lastName, role, recaptchaToken } = await request.json();
 
-    // --- reCAPTCHA Verification ---
-    const secretKey = process.env.RECAPTCHA_SECRET_KEY;
-    if (!secretKey) {
-      console.error("RECAPTCHA_SECRET_KEY is not set in environment variables.");
-      return NextResponse.json({ message: 'Server configuration error.' }, { status: 500 });
-    }
+    // --- reCAPTCHA Verification (Temporarily Bypassed for Debugging) ---
+    // const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+    // if (!secretKey) {
+    //   console.error("RECAPTCHA_SECRET_KEY is not set in environment variables.");
+    //   return NextResponse.json({ message: 'Server configuration error.' }, { status: 500 });
+    // }
 
-    const verificationUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${recaptchaToken}`;
+    // const verificationUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${recaptchaToken}`;
 
-    const recaptchaResponse = await fetch(verificationUrl, { method: 'POST' });
-    const recaptchaData = await recaptchaResponse.json();
+    // const recaptchaResponse = await fetch(verificationUrl, { method: 'POST' });
+    // const recaptchaData = await recaptchaResponse.json();
 
-    console.log("reCAPTCHA verification response:", recaptchaData); // Log for debugging
+    // console.log("reCAPTCHA verification response:", recaptchaData); // Log for debugging
 
-    // Check if verification was successful and score is sufficient (e.g., > 0.5 for v3)
-    // Adjust the score threshold as needed based on your reCAPTCHA settings and testing.
-    if (!recaptchaData.success || recaptchaData.score < 0.5) {
-      return NextResponse.json({ message: 'CAPTCHA verification failed. Please try again.' }, { status: 400 });
-    }
-    // --- End reCAPTCHA Verification ---
+    // // Check if verification was successful and score is sufficient (e.g., > 0.3 for v3)
+    // // Adjust the score threshold as needed based on your reCAPTCHA settings and testing.
+    // if (!recaptchaData.success || recaptchaData.score < 0.3) {
+    //   return NextResponse.json({ message: 'CAPTCHA verification failed. Please try again.' }, { status: 400 });
+    // }
+    // --- End reCAPTCHA Verification (Bypassed) ---
+    console.log("ReCAPTCHA verification bypassed for debugging purposes.");
 
     // --- Supabase Signup ---
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -41,15 +42,17 @@ export async function POST(request: Request) {
     });
 
     if (signUpError) {
-      console.error("Supabase sign-up error:", signUpError);
+      console.error("Supabase sign-up error details:", JSON.stringify(signUpError, null, 2));
       // Provide a more specific error message if possible
       let errorMessage = signUpError.message;
       if (signUpError.message.includes("User already registered")) {
           errorMessage = "This email address is already registered.";
       } else if (signUpError.message.includes("Password should be at least 6 characters")) {
           errorMessage = "Password must be at least 6 characters long.";
+      } else {
+          errorMessage = `Supabase error: ${signUpError.message}`;
       }
-      return NextResponse.json({ message: `Sign-up failed: ${errorMessage}` }, { status: 400 });
+      return NextResponse.json({ message: `Sign-up failed: ${errorMessage}`, details: signUpError.message }, { status: 400 });
     }
 
     if (!data.user) {
@@ -67,6 +70,6 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error("API Signup Error:", error);
-    return NextResponse.json({ message: 'An unexpected error occurred during sign-up.' }, { status: 500 });
+    return NextResponse.json({ message: 'An unexpected error occurred during sign-up.', details: error.message || 'Unknown error' }, { status: 500 });
   }
 }

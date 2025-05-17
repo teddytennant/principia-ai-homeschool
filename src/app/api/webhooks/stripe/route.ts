@@ -1,42 +1,75 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-// Remove import of headers from next/headers
 import { createClient } from '@supabase/supabase-js';
 
-// Ensure environment variables are loaded
+// --- Plan Price IDs ---
+const STRIPE_PRICE_IDS = {
+  family: { monthly: 'price_1RHqp5JeqDgVC0pzC2syW4AK', yearly: 'price_1RHtQ6JeqDgVC0pzzTsrMKrw' },
+  coop: { monthly: 'price_1RHtHgJeqDgVC0pzMfSjR81F', yearly: 'price_1RHtOpJeqDgVC0pzI0ombSIs' },
+  individual: { monthly: 'price_1RHtE3JeqDgVC0pz1vqgNtO1', yearly: 'price_1RHtO1JeqDgVC0pzn7FOz15G' },
+  additional_slot: 'price_1RIVYbJeqDgVC0pzlaR3NAQb', // Add-on Price ID
+};
+const PLAN_MAP: { [key: string]: string | null } = {
+  [STRIPE_PRICE_IDS.family.monthly]: 'family',
+  [STRIPE_PRICE_IDS.family.yearly]: 'family',
+  [STRIPE_PRICE_IDS.coop.monthly]: 'co-op',
+  [STRIPE_PRICE_IDS.coop.yearly]: 'co-op',
+  [STRIPE_PRICE_IDS.individual.monthly]: 'individual',
+  [STRIPE_PRICE_IDS.individual.yearly]: 'individual',
+};
+// --- End Plan Price IDs ---
+
+// --- Environment Variables ---
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// --- End Environment Variables ---
 
-if (!stripeSecretKey || !webhookSecret || !supabaseUrl || !serviceRoleKey) {
-  console.error("Missing required environment variables for Stripe webhook.");
-  // Avoid throwing error here in production, return error response instead
-  // throw new Error("Server configuration error: Missing Stripe or Supabase environment variables.");
+// --- Initialization ---
+let stripe: Stripe | null = null;
+if (stripeSecretKey) {
+  stripe = new Stripe(stripeSecretKey);
+} else {
+  console.error("Stripe secret key is missing.");
 }
 
-// Initialize Stripe (removing explicit apiVersion to use library default)
-const stripe = new Stripe(stripeSecretKey || ''); // Provide default empty string
+let supabaseAdmin: ReturnType<typeof createClient> | null = null;
+if (supabaseUrl && serviceRoleKey) {
+  supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+} else {
+  console.error("Supabase URL or Service Role Key is missing.");
+}
+// --- End Initialization ---
 
-// Initialize Supabase Admin Client (needed to update profiles regardless of RLS)
-const supabaseAdmin = createClient(supabaseUrl!, serviceRoleKey!); // Use non-null assertion assuming check above
-
-// Helper function to update profile based on Stripe customer ID
-const updateProfileByCustomerId = async (customerId: string, dataToUpdate: object) => {
+// --- Helper Functions ---
+// Helper function to update profile based on Supabase User ID
+const updateProfileByUserId = async (userId: string, dataToUpdate: Record<string, any>) => {
+  if (!supabaseAdmin) {
+    console.error("Supabase admin client not initialized in updateProfileByUserId.");
+    return { error: new Error("Server configuration error.") };
+  }
+  console.log(`Attempting to update profile for Supabase user ID: ${userId}`, dataToUpdate);
   const { error } = await supabaseAdmin
     .from('profiles')
     .update(dataToUpdate)
-    .eq('stripe_customer_id', customerId);
+    .eq('id', userId);
 
   if (error) {
-    console.error(`Error updating profile for customer ${customerId}:`, error);
+    console.error(`Error updating profile for user ${userId}:`, error);
   } else {
-    console.log(`Successfully updated profile for customer ${customerId} with data:`, dataToUpdate);
+    console.log(`Successfully updated profile for user ${userId}`);
   }
+  return { error };
 };
 
-// Helper function to update profile based on Stripe subscription ID
-const updateProfileBySubscriptionId = async (subscriptionId: string, dataToUpdate: object) => {
+// Helper function to update profile based on Stripe Subscription ID
+const updateProfileBySubscriptionId = async (subscriptionId: string, dataToUpdate: Record<string, any>) => {
+    if (!supabaseAdmin) {
+        console.error("Supabase admin client not initialized in updateProfileBySubscriptionId.");
+        return { error: new Error("Server configuration error.") };
+    }
+    console.log(`Attempting to update profile by subscription ID: ${subscriptionId}`, dataToUpdate);
     const { error } = await supabaseAdmin
       .from('profiles')
       .update(dataToUpdate)
@@ -45,20 +78,43 @@ const updateProfileBySubscriptionId = async (subscriptionId: string, dataToUpdat
     if (error) {
       console.error(`Error updating profile for subscription ${subscriptionId}:`, error);
     } else {
-        console.log(`Successfully updated profile for subscription ${subscriptionId} with data:`, dataToUpdate);
+        console.log(`Successfully updated profile for subscription ${subscriptionId}`);
     }
+    return { error };
 };
 
+// Helper function to process subscription data and extract plan/slots
+const processSubscriptionData = (subscription: Stripe.Subscription): { planType: string | null, extraSlots: number } => {
+    let planType: string | null = null;
+    let extraSlots = 0;
 
+    if (!subscription?.items?.data) {
+        console.warn(`Subscription ${subscription.id} has no items data.`);
+        return { planType, extraSlots };
+    }
+
+    for (const item of subscription.items.data) {
+        const priceId = item.price.id;
+        if (PLAN_MAP[priceId]) {
+            planType = PLAN_MAP[priceId];
+        } else if (priceId === STRIPE_PRICE_IDS.additional_slot) {
+            extraSlots = item.quantity || 0;
+        }
+    }
+    console.log(`Processed subscription ${subscription.id}: Plan=${planType}, ExtraSlots=${extraSlots}`);
+    return { planType, extraSlots };
+};
+// --- End Helper Functions ---
+
+
+// --- Webhook Handler ---
 export async function POST(request: Request) {
-  // Check required env vars again within the request context
-  if (!stripeSecretKey || !webhookSecret || !supabaseUrl || !serviceRoleKey) {
-      console.error("Webhook Error: Server configuration missing required environment variables.");
+  if (!stripe || !webhookSecret || !supabaseAdmin) {
+      console.error("Webhook Error: Server configuration missing required Stripe/Supabase variables or clients.");
       return NextResponse.json({ error: { message: 'Server configuration error.' } }, { status: 500 });
   }
 
-  const body = await request.text(); // Need raw body for signature verification
-  // Get signature directly from the request headers
+  const body = await request.text();
   const signature = request.headers.get('stripe-signature');
 
   if (!signature) {
@@ -69,9 +125,8 @@ export async function POST(request: Request) {
   let event: Stripe.Event;
 
   try {
-    // Pass the guaranteed string signature and webhookSecret
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-    console.log(`Received Stripe event: ${event.type}`);
+    console.log(`Webhook Received: ${event.type}`);
   } catch (err: any) {
     console.error(`Webhook signature verification failed: ${err.message}`);
     return NextResponse.json({ error: { message: `Webhook Error: ${err.message}` } }, { status: 400 });
@@ -79,73 +134,113 @@ export async function POST(request: Request) {
 
   // Handle the event
   try {
+    const subscription = event.data.object as Stripe.Subscription;
+
     switch (event.type) {
-      // --- Subscription Events ---
-      case 'customer.subscription.created': {
-        const subscription = event.data.object as Stripe.Subscription;
-        console.log(`Handling subscription created: ${subscription.id} for customer ${subscription.customer}`);
-        if (subscription.customer) {
-            await updateProfileByCustomerId(subscription.customer as string, {
-              stripe_subscription_id: subscription.id,
-              stripe_subscription_status: subscription.status,
-            });
-        }
-        break;
-      }
+      case 'customer.subscription.created':
       case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription;
-        console.log(`Handling subscription updated: ${subscription.id} Status: ${subscription.status}`);
-         await updateProfileBySubscriptionId(subscription.id, {
-           stripe_subscription_status: subscription.status,
-         });
+        console.log(`Webhook Handling: ${event.type} for Sub ID: ${subscription.id}`);
+        const fullSubscription = await stripe.subscriptions.retrieve(subscription.id, {
+            expand: ['items.data.price'],
+        });
+        const { planType, extraSlots } = processSubscriptionData(fullSubscription);
+        const dataToUpdate = {
+          stripe_subscription_status: subscription.status,
+          plan_type: planType,
+          extra_student_slots: extraSlots,
+          ...(subscription.customer && { stripe_customer_id: subscription.customer as string }),
+        };
+        console.log(`Webhook: Data for update (by Sub ID ${subscription.id}):`, dataToUpdate);
+        await updateProfileBySubscriptionId(subscription.id, dataToUpdate);
         break;
       }
       case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription;
-        console.log(`Handling subscription deleted: ${subscription.id} Status: ${subscription.status}`);
-         await updateProfileBySubscriptionId(subscription.id, {
-           stripe_subscription_status: subscription.status, // Should be 'canceled' or similar
-         });
+        console.log(`Webhook Handling: ${event.type} for Sub ID: ${subscription.id}`);
+         const dataToUpdate = {
+           stripe_subscription_status: subscription.status,
+           plan_type: null,
+           extra_student_slots: 0,
+         };
+         console.log(`Webhook: Data for update (by Sub ID ${subscription.id}):`, dataToUpdate);
+         await updateProfileBySubscriptionId(subscription.id, dataToUpdate);
         break;
       }
-
-      // --- Checkout Session Events ---
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        console.log(`Handling checkout session completed: ${session.id} for customer ${session.customer}`);
+        console.log(`Webhook Handling: ${event.type} for Session ID: ${session.id}, Customer: ${session.customer}`);
         if (session.mode === 'subscription' && session.subscription && session.customer) {
-          // Update profile using customer ID from the session
-          await updateProfileByCustomerId(session.customer as string, {
-            stripe_subscription_id: session.subscription as string,
-            stripe_subscription_status: 'active', // Assume active on completion
-          });
+           const fullSubscription = await stripe.subscriptions.retrieve(session.subscription as string, {
+               expand: ['items.data.price'],
+           });
+           const { planType, extraSlots } = processSubscriptionData(fullSubscription);
+           const statusToSave = session.payment_status === 'paid' ? 'active' : fullSubscription.status;
+           console.log(`Webhook: Checkout complete. Payment status: ${session.payment_status}. Sub status: ${fullSubscription.status}. Saving status as: ${statusToSave}`);
+
+           const supabaseUserId = session.metadata?.supabase_user_id;
+           const dataToUpdate = {
+               stripe_customer_id: session.customer as string,
+               stripe_subscription_id: session.subscription as string,
+               stripe_subscription_status: statusToSave,
+               plan_type: planType,
+               extra_student_slots: extraSlots,
+           };
+           console.log("Webhook: Data to update:", dataToUpdate);
+
+           if (!supabaseUserId) {
+               console.error(`Webhook Error: Missing supabase_user_id in metadata for checkout session ${session.id}. Attempting fallback update by Customer ID.`);
+               // Fallback update by Customer ID
+               const { error: fallbackUpdateError } = await updateProfileByUserId(session.customer as string, dataToUpdate); // Using updateProfileByUserId for fallback too
+               if (fallbackUpdateError) {
+                   console.error(`Webhook Fallback Update Error (by Customer ID ${session.customer}):`, fallbackUpdateError);
+               } else {
+                   console.log(`Webhook Fallback Update Success (by Customer ID ${session.customer})`);
+               }
+           } else {
+               console.log(`Webhook: Updating profile for Supabase user ID: ${supabaseUserId}`);
+               // Primary update by Supabase User ID
+               const { error: updateError } = await updateProfileByUserId(supabaseUserId, dataToUpdate);
+               if (updateError) {
+                   console.error(`Webhook Error: Failed to update profile for user ${supabaseUserId}:`, updateError);
+               } else {
+                   console.log(`Webhook: Successfully updated profile for user ${supabaseUserId}`);
+               }
+           }
         } else if (session.mode === 'payment') {
-          console.log(`One-time payment checkout session completed: ${session.id}`);
+          console.log(`Webhook Handling: One-time payment checkout session completed: ${session.id}`);
         }
         break;
       }
-
-      // --- Customer Events ---
-       case 'customer.created': {
+      case 'customer.created': {
          const customer = event.data.object as Stripe.Customer;
-         console.log(`Handling customer created: ${customer.id} Email: ${customer.email}`);
-         // Link customer ID based on email if needed (e.g., if customer created outside checkout)
-         // if (customer.email) {
-         //    const { error } = await supabaseAdmin.from('profiles').update({ stripe_customer_id: customer.id }).eq('email', customer.email);
-         //    if (error) console.error(`Webhook: Error linking customer ${customer.id} to profile by email ${customer.email}:`, error);
-         // }
+         console.log(`Webhook Handling: ${event.type} for Customer ID: ${customer.id}, Email: ${customer.email}`);
+         if (customer.email) {
+            const dataToUpdate = { stripe_customer_id: customer.id };
+            console.log(`Webhook: Attempting to link customer ${customer.id} to profile by email ${customer.email}`);
+            const { error } = await supabaseAdmin
+                .from('profiles')
+                .update(dataToUpdate)
+                .eq('email', customer.email)
+                .is('stripe_customer_id', null);
+            if (error) {
+                console.error(`Webhook Error: Failed linking customer ${customer.id} to profile by email ${customer.email}:`, error);
+            } else {
+                 console.log(`Webhook: Successfully linked customer ${customer.id} via email.`);
+            }
+         }
          break;
        }
-
       default:
-        console.log(`Unhandled event type ${event.type}`);
+        console.log(`Webhook: Unhandled event type ${event.type}`);
     }
 
-    // Return a 200 response to acknowledge receipt of the event
     return NextResponse.json({ received: true }, { status: 200 });
 
   } catch (error: any) {
-      console.error("Error handling Stripe webhook event:", error);
-      return NextResponse.json({ error: { message: `Webhook handler error: ${error.message}` } }, { status: 500 });
+      console.error("Webhook Error: Error handling Stripe event:", error);
+      if (error.type && error.statusCode) {
+          return NextResponse.json({ error: { message: `Stripe API Error: ${error.message}` } }, { status: error.statusCode });
+      }
+      return NextResponse.json({ error: { message: `Webhook handler error: ${error.message || 'Unknown error'}` } }, { status: 500 });
   }
 }
+// --- End Webhook Handler ---
